@@ -1,0 +1,58 @@
+-- 003 down: Academic curriculum versions, declarative rules, ABC ledger
+SET search_path TO ricoz, public;
+
+DROP TRIGGER IF EXISTS trg_curriculum_version_immutable ON curriculum_versions;
+DROP TRIGGER IF EXISTS trg_programme_version_immutable ON programme_versions;
+DROP FUNCTION IF EXISTS prevent_published_version_mutate();
+
+DROP POLICY IF EXISTS tenant_isolation ON curriculum_simulations;
+DROP POLICY IF EXISTS tenant_isolation ON rule_evaluation_decisions;
+DROP POLICY IF EXISTS tenant_isolation ON course_attempts;
+DROP POLICY IF EXISTS tenant_isolation ON abc_credit_ledger;
+DROP POLICY IF EXISTS tenant_isolation ON programme_enrolments;
+DROP POLICY IF EXISTS tenant_isolation ON cohorts;
+DROP POLICY IF EXISTS tenant_isolation ON outcome_mappings;
+DROP POLICY IF EXISTS tenant_isolation ON learning_outcomes;
+DROP POLICY IF EXISTS tenant_isolation ON exit_awards;
+DROP POLICY IF EXISTS tenant_isolation ON progression_rules;
+DROP POLICY IF EXISTS tenant_isolation ON transfer_credits;
+DROP POLICY IF EXISTS tenant_isolation ON course_waivers;
+DROP POLICY IF EXISTS tenant_isolation ON course_equivalencies;
+DROP POLICY IF EXISTS tenant_isolation ON corequisites;
+DROP POLICY IF EXISTS tenant_isolation ON prerequisite_group_items;
+DROP POLICY IF EXISTS tenant_isolation ON prerequisite_groups;
+DROP POLICY IF EXISTS tenant_isolation ON programme_version_grade_schemes;
+DROP POLICY IF EXISTS tenant_isolation ON grade_schemes;
+DROP POLICY IF EXISTS tenant_isolation ON curriculum_course_requirements;
+DROP POLICY IF EXISTS tenant_isolation ON course_groups;
+DROP POLICY IF EXISTS tenant_isolation ON course_versions;
+DROP POLICY IF EXISTS tenant_isolation ON curriculum_versions;
+DROP POLICY IF EXISTS tenant_isolation ON programme_versions;
+DROP POLICY IF EXISTS tenant_isolation ON academic_terms;
+DROP POLICY IF EXISTS tenant_isolation ON academic_years;
+
+DROP TABLE IF EXISTS curriculum_simulations;
+DROP TABLE IF EXISTS rule_evaluation_decisions;
+DROP TABLE IF EXISTS course_attempts;
+DROP TABLE IF EXISTS abc_credit_ledger;
+DROP TABLE IF EXISTS programme_enrolments;
+DROP TABLE IF EXISTS cohorts;
+DROP TABLE IF EXISTS outcome_mappings;
+DROP TABLE IF EXISTS learning_outcomes;
+DROP TABLE IF EXISTS exit_awards;
+DROP TABLE IF EXISTS progression_rules;
+DROP TABLE IF EXISTS transfer_credits;
+DROP TABLE IF EXISTS course_waivers;
+DROP TABLE IF EXISTS course_equivalencies;
+DROP TABLE IF EXISTS corequisites;
+DROP TABLE IF EXISTS prerequisite_group_items;
+DROP TABLE IF EXISTS prerequisite_groups;
+DROP TABLE IF EXISTS programme_version_grade_schemes;
+DROP TABLE IF EXISTS grade_schemes;
+DROP TABLE IF EXISTS curriculum_course_requirements;
+DROP TABLE IF EXISTS course_groups;
+DROP TABLE IF EXISTS course_versions;
+DROP TABLE IF EXISTS curriculum_versions;
+DROP TABLE IF EXISTS programme_versions;
+DROP TABLE IF EXISTS academic_terms;
+DROP TABLE IF EXISTS academic_years;

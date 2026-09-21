@@ -1,0 +1,19 @@
+SET search_path TO ricoz, public;
+
+DROP TABLE IF EXISTS abc_nad_publications;
+DROP TABLE IF EXISTS graduation_cases;
+DROP TABLE IF EXISTS advising_cases;
+DROP TABLE IF EXISTS examination_cycles;
+DROP TABLE IF EXISTS continuous_assessments;
+DROP TABLE IF EXISTS attendance_interventions;
+DROP TABLE IF EXISTS course_registration_requests;
+DROP TABLE IF EXISTS term_preparations;
+DROP TABLE IF EXISTS onboarding_cases;
+DROP TABLE IF EXISTS admissions;
+DROP TABLE IF EXISTS applications;
+DROP TABLE IF EXISTS enquiries;
+DROP TABLE IF EXISTS workflow_notifications;
+DROP TABLE IF EXISTS workflow_commands;
+DROP TABLE IF EXISTS workflow_transitions;
+DROP TABLE IF EXISTS workflow_instances;
+DROP TABLE IF EXISTS workflow_definitions;

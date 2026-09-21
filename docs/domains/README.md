@@ -1,5 +1,8 @@
-# Future domain boundaries (stubs)
+# Future domain boundaries
 
-Not implemented in Phase 0: crm, admissions, academics APIs, registration, timetable, attendance, lms, assessment APIs, exams, credentials APIs, fees, scholarships, advising, compliance (NEP/CBCS/OBE/NAAC/NBA/ABC/APAAR/NAD), analytics, notifications, integrations, agentic-ai, billing.
+Implemented foundations:
 
-Schema for academic spine may exist; product APIs remain deferred.
+- **academics / curriculum / rules** — `docs/domains/academics-curriculum.md`, migration `003_academic_curriculum_rules`
+- **student lifecycle workflows** — `docs/domains/student-lifecycle-workflows.md`, migration `004_student_lifecycle_workflows`
+
+Still deferred product surfaces: CRM UI polish, full admissions portal UX, registration UX beyond eligibility/workflow commands, timetable, attendance capture service (intervention workflow wired), LMS, fees, scholarships, full ABC/NAD HTTP connectors, analytics warehouse, notification delivery workers, agentic-ai, billing.

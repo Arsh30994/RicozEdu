@@ -85,3 +85,84 @@ export const CreateRoleBindingSchema = z.object({
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
 export type CreateTenant = z.infer<typeof CreateTenantSchema>;
 export type CreateStudent = z.infer<typeof CreateStudentSchema>;
+
+/** Course category enum aligned with curriculum_course_requirements.category */
+export const CourseCategorySchema = z.enum([
+  'core',
+  'elective',
+  'major',
+  'minor',
+  'multidisciplinary',
+  'ability_enhancement',
+  'skill_enhancement',
+  'value_added',
+  'internship',
+  'community_engagement',
+  'project',
+  'research',
+  'other',
+]);
+export type CourseCategory = z.infer<typeof CourseCategorySchema>;
+
+/** Declarative academic rule node (v1) */
+export type RuleNode =
+  | { type: 'credit_total'; min: number; categories?: string[] }
+  | {
+      type: 'course_completed';
+      courseVersionId?: string;
+      courseId?: string;
+      minGrade?: string;
+    }
+  | { type: 'group_credits'; courseGroupId: string; minCredits: number }
+  | { type: 'prerequisite_satisfied'; courseVersionId: string }
+  | { type: 'term_standing'; minCgpa?: number; maxFailCount?: number }
+  | { type: 'exit_eligible'; exitAwardCode: string };
+
+export const RuleNodeSchema: z.ZodType<RuleNode> = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('credit_total'),
+    min: z.number(),
+    categories: z.array(z.string()).optional(),
+  }),
+  z.object({
+    type: z.literal('course_completed'),
+    courseVersionId: z.string().uuid().optional(),
+    courseId: z.string().uuid().optional(),
+    minGrade: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal('group_credits'),
+    courseGroupId: z.string().uuid(),
+    minCredits: z.number(),
+  }),
+  z.object({
+    type: z.literal('prerequisite_satisfied'),
+    courseVersionId: z.string().uuid(),
+  }),
+  z.object({
+    type: z.literal('term_standing'),
+    minCgpa: z.number().optional(),
+    maxFailCount: z.number().int().optional(),
+  }),
+  z.object({
+    type: z.literal('exit_eligible'),
+    exitAwardCode: z.string().min(1),
+  }),
+]);
+
+export const RuleDocumentSchema = z.object({
+  version: z.literal('1'),
+  all: z.array(RuleNodeSchema).optional(),
+  any: z.array(RuleNodeSchema).optional(),
+  not: RuleNodeSchema.optional(),
+});
+
+export type RuleDocument = z.infer<typeof RuleDocumentSchema>;
+
+export const RuleVersionRefsSchema = z.object({
+  programmeVersionId: z.string().uuid().optional(),
+  curriculumVersionId: z.string().uuid().optional(),
+  progressionRuleIds: z.array(z.string().uuid()).optional(),
+  evaluatorVersion: z.string().min(1),
+});
+export type RuleVersionRefs = z.infer<typeof RuleVersionRefsSchema>;
