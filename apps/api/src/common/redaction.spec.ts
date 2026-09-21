@@ -16,4 +16,19 @@ describe('redaction', () => {
   it('redacts bearer tokens in strings', () => {
     expect(redactString('Authorization: Bearer abc.def.ghi')).toContain('[REDACTED]');
   });
+
+  it('redacts ciphertext and vault refs', () => {
+    const out = redactForLog({
+      token_ciphertext: Buffer.from('x'),
+      token_dek_wrapped: 'wrap',
+      credential_ref: 'vault/path',
+      oauth_token_ref: 'kms:1',
+      ok: true,
+    }) as Record<string, unknown>;
+    expect(out.token_ciphertext).toBe('[REDACTED]');
+    expect(out.token_dek_wrapped).toBe('[REDACTED]');
+    expect(out.credential_ref).toBe('[REDACTED]');
+    expect(out.oauth_token_ref).toBe('[REDACTED]');
+    expect(out.ok).toBe(true);
+  });
 });
