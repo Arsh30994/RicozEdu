@@ -9,6 +9,7 @@ import { StudentsModule } from './students/students.module';
 import { AuditModule } from './audit/audit.module';
 import { AcademicsModule } from './academics/academics.module';
 import { LifecycleModule } from './lifecycle/lifecycle.module';
+import { FeesModule } from './fees/fees.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { LifecycleModule } from './lifecycle/lifecycle.module';
     AuditModule,
     AcademicsModule,
     LifecycleModule,
+    FeesModule.register(),
   ],
 })
 export class AppModule {}

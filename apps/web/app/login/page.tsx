@@ -35,8 +35,22 @@ export default function LoginPage() {
 
   return (
     <section>
-      <h1>Login</h1>
-      <form className="panel" onSubmit={onSubmit} aria-describedby={error ? 'login-error' : undefined}>
+      <div className="page-head">
+        <div>
+          <h1>Sign in</h1>
+          <p>
+            Use your API credentials. Tenant id is sent as a header and checked
+            against membership — never trusted from the request body alone.
+          </p>
+        </div>
+      </div>
+
+      <form
+        className="card"
+        style={{ maxWidth: 480 }}
+        onSubmit={onSubmit}
+        aria-describedby={error ? 'login-error' : undefined}
+      >
         <label htmlFor="email">Email</label>
         <input
           id="email"
@@ -67,16 +81,23 @@ export default function LoginPage() {
           onChange={(e) => setTenantId(e.target.value)}
           aria-describedby="tenant-help"
         />
-        <p id="tenant-help" className="muted">
+        <p id="tenant-help" className="muted" style={{ marginTop: '0.4rem' }}>
           Resolved server-side via membership. Do not put secrets in the URL.
         </p>
-        <button type="submit">Sign in</button>
+        <div className="actions" style={{ marginTop: '1.1rem' }}>
+          <button type="submit">Sign in</button>
+        </div>
         {error ? (
           <p id="login-error" className="error" role="alert">
             {error}
           </p>
         ) : null}
-        {ok ? <p role="status">Signed in. Continue to Admin or Student pages.</p> : null}
+        {ok ? (
+          <p role="status" style={{ marginTop: '0.85rem' }}>
+            <span className="badge ok">Signed in</span>{' '}
+            Continue to Curriculum or Degree progress.
+          </p>
+        ) : null}
       </form>
     </section>
   );

@@ -39,37 +39,67 @@ export default function AdminCurriculumPage() {
 
   return (
     <section>
-      <h1>Admin curriculum</h1>
-      <p className="muted">
-        Publish a draft programme version. The API validates prerequisite cycles
-        and runs an eligibility simulation. Published versions are immutable.
-      </p>
-      <form className="panel" onSubmit={publish}>
-        <label htmlFor="pv">Programme version ID</label>
-        <input
-          id="pv"
-          required
-          value={programmeVersionId}
-          onChange={(e) => setProgrammeVersionId(e.target.value)}
-        />
-        <button type="submit">Simulate & publish</button>
-        {error ? (
-          <p className="error" role="alert">
-            {error}
+      <div className="page-head">
+        <div>
+          <h1>Curriculum publish</h1>
+          <p>
+            Publish a draft programme version. The API validates prerequisite
+            cycles and runs an eligibility simulation. Published versions are
+            immutable.
           </p>
-        ) : null}
-      </form>
+        </div>
+      </div>
+
+      <div className="grid grid-2">
+        <form className="card" onSubmit={publish}>
+          <h2>Simulate and publish</h2>
+          <label htmlFor="pv">Programme version ID</label>
+          <input
+            id="pv"
+            required
+            value={programmeVersionId}
+            onChange={(e) => setProgrammeVersionId(e.target.value)}
+          />
+          <div className="actions" style={{ marginTop: '1.1rem' }}>
+            <button type="submit">Simulate and publish</button>
+          </div>
+          {error ? (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </form>
+
+        <div className="card flat">
+          <h2>Guardrails</h2>
+          <ul className="list">
+            <li>Prerequisite graph must be acyclic before publish.</li>
+            <li>Simulation samples affected students with human explanations.</li>
+            <li>Published curriculum fields cannot be silently overwritten.</li>
+          </ul>
+        </div>
+      </div>
+
       {result ? (
-        <div className="panel" role="status">
-          <h2>Publish result</h2>
-          <p>Status: {result.status}</p>
-          <p>{result.prerequisiteValidation?.explanation}</p>
+        <div className="card" style={{ marginTop: '1rem' }} role="status">
+          <div className="page-head" style={{ marginBottom: '0.5rem' }}>
+            <h2 style={{ margin: 0 }}>Publish result</h2>
+            <span className={`badge ${result.status === 'published' ? 'ok' : 'warn'}`}>
+              {result.status}
+            </span>
+          </div>
+          <p className="muted">{result.prerequisiteValidation?.explanation}</p>
           <p>{result.simulation?.explanation}</p>
-          <p>Affected students: {result.simulation?.affectedCount ?? 0}</p>
+          <p>
+            Affected students:{' '}
+            <strong>{result.simulation?.affectedCount ?? 0}</strong>
+          </p>
           <ul className="list">
             {(result.simulation?.sample ?? []).map((s) => (
               <li key={s.displayLabel}>
-                <strong>{s.displayLabel}</strong> — {s.summary}
+                <strong>{s.displayLabel}</strong>
+                {' â€” '}
+                {s.summary}
               </li>
             ))}
           </ul>

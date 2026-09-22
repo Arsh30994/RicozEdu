@@ -6,11 +6,10 @@ import {
 } from './rules/degree-progress';
 import { EVALUATOR_VERSION, evaluateRuleDocument } from './rules/rule-evaluator';
 import {
-  detectPrerequisiteCycles,
-  evaluatePrerequisiteGroups,
-  PrereqEdge,
+  validatePrerequisiteGraph,
+  PrerequisiteGroupInput,
 } from './rules/prerequisite-graph';
-import { explainRegistrationFailure } from './rules/registration-explainer';
+import { explainRegistrationEligibility } from './rules/registration-explainer';
 import {
   simulateCurriculumChange,
   CurriculumSnapshot,
@@ -97,13 +96,13 @@ export class AcademicsService {
     runSimulation?: boolean;
   }) {
     return this.db.withTenantTx(input.tenantId, input.userId, async (client) => {
-      const edges = await this.loadPrereqEdges(
+      const groups = await this.loadPrereqGroups(
         client,
         input.tenantId,
         input.programmeVersionId,
       );
-      const graph = detectPrerequisiteCycles(edges);
-      if (!graph.ok) {
+      const graph = validatePrerequisiteGraph(groups);
+      if (!graph.valid) {
         throw new ApiError(
           'PREREQ_CYCLE',
           graph.explanation,
@@ -205,13 +204,13 @@ export class AcademicsService {
       if (!row || row.status !== 'draft') {
         throw new ApiError('NOT_FOUND', 'Curriculum version not draft', HttpStatus.NOT_FOUND);
       }
-      const edges = await this.loadPrereqEdges(
+      const groups = await this.loadPrereqGroups(
         client,
         input.tenantId,
         row.programme_version_id,
       );
-      const graph = detectPrerequisiteCycles(edges);
-      if (!graph.ok) {
+      const graph = validatePrerequisiteGraph(groups);
+      if (!graph.valid) {
         throw new ApiError(
           'PREREQ_CYCLE',
           graph.explanation,
@@ -300,7 +299,9 @@ export class AcademicsService {
           id: g.id,
           courseVersionId: input.courseVersionId,
           logic: g.logic,
+          sortOrder: 0,
           items: items.rows.map((i) => ({
+            id: `${g.id}:${i.required_course_version_id ?? i.required_course_id ?? 'x'}`,
             requiredCourseVersionId: i.required_course_version_id,
             requiredCourseId: i.required_course_id,
           })),
@@ -324,40 +325,32 @@ export class AcademicsService {
         [input.tenantId, input.studentMembershipId],
       );
       const waived = new Set(waivers.rows.map((w) => w.course_version_id));
-      const prereq = evaluatePrerequisiteGroups(
-        fullGroups,
-        completedVersions,
-        completedCourses,
-        waived,
+      const credit = await client.query<{ credit_value: string }>(
+        `SELECT credit_value::text FROM course_versions WHERE id = $1`,
+        [input.courseVersionId],
       );
-      const coreqs = await client.query<{ code: string }>(
-        `SELECT c.code FROM corequisites cq
-         JOIN course_versions cv ON cv.id = cq.required_course_version_id
-         JOIN courses c ON c.id = cv.course_id
-         WHERE cq.course_version_id = $1 AND cq.tenant_id = $2`,
+      const coreqIds = await client.query<{ required_course_version_id: string }>(
+        `SELECT required_course_version_id FROM corequisites
+         WHERE course_version_id = $1 AND tenant_id = $2`,
         [input.courseVersionId, input.tenantId],
-      );
-      const attempts = await client.query<{ cnt: string }>(
-        `SELECT count(*)::text AS cnt FROM course_attempts
-         WHERE tenant_id = $1 AND student_membership_id = $2 AND course_version_id = $3
-           AND status <> 'voided'`,
-        [input.tenantId, input.studentMembershipId, input.courseVersionId],
       );
       const course = await client.query<{ code: string; title: string }>(
         `SELECT c.code, c.title FROM course_versions cv
          JOIN courses c ON c.id = cv.course_id WHERE cv.id = $1`,
         [input.courseVersionId],
       );
-      const explained = explainRegistrationFailure({
+      const explained = explainRegistrationEligibility({
+        courseVersionId: input.courseVersionId,
         courseCode: course.rows[0]?.code,
         courseTitle: course.rows[0]?.title,
-        prerequisiteOk: prereq.satisfied,
-        prerequisiteExplanation: prereq.explanation,
-        corequisiteMissing: coreqs.rows.map((r) => r.code),
-        alreadyCompleted: completedVersions.has(input.courseVersionId),
-        repeatAllowed: !completedVersions.has(input.courseVersionId),
-        attemptCount: Number(attempts.rows[0]?.cnt ?? 0),
-        maxAttempts: 3,
+        creditValue: Number(credit.rows[0]?.credit_value ?? 0),
+        currentTermCredits: 0,
+        prerequisiteGroups: fullGroups as PrerequisiteGroupInput[],
+        corequisiteCourseVersionIds: coreqIds.rows.map((r) => r.required_course_version_id),
+        completedCourseVersionIds: [...completedVersions],
+        completedCourseIds: [...completedCourses],
+        registeredThisTermCourseVersionIds: [],
+        waivedCourseVersionIds: [...waived],
       });
       await client.query(
         `INSERT INTO rule_evaluation_decisions (
@@ -372,9 +365,9 @@ export class AcademicsService {
             evaluatorVersion: EVALUATOR_VERSION,
             courseVersionId: input.courseVersionId,
           }),
-          explained.allowed ? 'pass' : 'fail',
+          explained.eligible ? 'pass' : 'fail',
           explained.explanation,
-          JSON.stringify({ reasons: explained.reasons, prereq }),
+          JSON.stringify({ failures: explained.failures, details: explained.details }),
           input.userId,
         ],
       );
@@ -382,7 +375,7 @@ export class AcademicsService {
         tenantId: input.tenantId,
         actorUserId: input.userId,
         actorMembershipId: input.membershipId,
-        action: explained.allowed
+        action: explained.eligible
           ? 'registration.check.passed'
           : 'registration.check.failed',
         resourceType: 'course_version',
@@ -508,39 +501,51 @@ export class AcademicsService {
     return evaluateRuleDocument(RuleDocumentSchema.parse(doc), snap);
   }
 
-  private async loadPrereqEdges(
+  private async loadPrereqGroups(
     client: PoolClient,
     tenantId: string,
     programmeVersionId: string,
-  ): Promise<PrereqEdge[]> {
-    const r = await client.query<{
-      from_id: string;
-      to_id: string;
-      group_id: string;
+  ): Promise<PrerequisiteGroupInput[]> {
+    const groups = await client.query<{
+      id: string;
+      course_version_id: string;
       logic: 'AND' | 'OR';
-      department_id: string | null;
+      sort_order: number;
     }>(
-      `SELECT pg.course_version_id AS from_id,
-              coalesce(pgi.required_course_version_id, cv_any.id) AS to_id,
-              pg.id AS group_id, pg.logic, pgi.department_id
+      `SELECT pg.id, pg.course_version_id, pg.logic, coalesce(pg.sort_order, 0) AS sort_order
        FROM prerequisite_groups pg
-       JOIN prerequisite_group_items pgi ON pgi.prerequisite_group_id = pg.id
        JOIN course_versions cv_from ON cv_from.id = pg.course_version_id
        JOIN curriculum_course_requirements ccr ON ccr.course_version_id = cv_from.id
        JOIN curriculum_versions cur ON cur.id = ccr.curriculum_version_id
-       LEFT JOIN course_versions cv_any ON cv_any.course_id = pgi.required_course_id
-         AND cv_any.status = 'published'
-       WHERE cur.programme_version_id = $1 AND pg.tenant_id = $2
-         AND coalesce(pgi.required_course_version_id, cv_any.id) IS NOT NULL`,
+       WHERE cur.programme_version_id = $1 AND pg.tenant_id = $2`,
       [programmeVersionId, tenantId],
     );
-    return r.rows.map((row) => ({
-      fromCourseVersionId: row.from_id,
-      toCourseVersionId: row.to_id,
-      groupId: row.group_id,
-      logic: row.logic,
-      crossDepartment: !!row.department_id,
-    }));
+    const result: PrerequisiteGroupInput[] = [];
+    for (const g of groups.rows) {
+      const items = await client.query<{
+        id: string;
+        required_course_version_id: string | null;
+        required_course_id: string | null;
+        department_id: string | null;
+      }>(
+        `SELECT id, required_course_version_id, required_course_id, department_id
+         FROM prerequisite_group_items WHERE prerequisite_group_id = $1`,
+        [g.id],
+      );
+      result.push({
+        id: g.id,
+        courseVersionId: g.course_version_id,
+        logic: g.logic,
+        sortOrder: g.sort_order,
+        items: items.rows.map((i) => ({
+          id: i.id,
+          requiredCourseVersionId: i.required_course_version_id,
+          requiredCourseId: i.required_course_id,
+          departmentId: i.department_id,
+        })),
+      });
+    }
+    return result;
   }
 
   private async loadRequirements(

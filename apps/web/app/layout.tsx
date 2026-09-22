@@ -1,5 +1,19 @@
 import type { ReactNode } from 'react';
+import { Source_Serif_4, Source_Sans_3 } from 'next/font/google';
+import { AppShell } from '../components/AppShell';
 import './globals.css';
+
+const display = Source_Serif_4({
+  subsets: ['latin'],
+  variable: '--font-literata',
+  display: 'swap',
+});
+
+const body = Source_Sans_3({
+  subsets: ['latin'],
+  variable: '--font-nunito',
+  display: 'swap',
+});
 
 export const metadata = {
   title: 'RicozEdu',
@@ -8,22 +22,14 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>
         <a className="skip-link" href="#main">
           Skip to content
         </a>
-        <header className="top">
-          <strong>RicozEdu</strong>
-          <nav aria-label="Primary">
-            <a href="/">Home</a>
-            <a href="/login">Login</a>
-            <a href="/admin/curriculum">Admin curriculum</a>
-            <a href="/admin/rules">Admin rules</a>
-            <a href="/student/progress">Student progress</a>
-          </nav>
-        </header>
-        <main id="main">{children}</main>
+        <AppShell>
+          <main id="main">{children}</main>
+        </AppShell>
       </body>
     </html>
   );

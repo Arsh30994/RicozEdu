@@ -13,26 +13,36 @@ const SAMPLE = `{
 export default function AdminRulesPage() {
   const [json, setJson] = useState(SAMPLE);
   const [message, setMessage] = useState<string | null>(null);
+  const [ok, setOk] = useState<boolean | null>(null);
 
   function onValidate(e: FormEvent) {
     e.preventDefault();
     try {
       const parsed = JSON.parse(json);
       if (parsed.version !== '1') throw new Error('version must be "1"');
-      setMessage('Rule document JSON is well-formed. Persist via programme version APIs.');
+      setOk(true);
+      setMessage(
+        'Rule document JSON is well-formed. Persist via programme version APIs.',
+      );
     } catch (err) {
+      setOk(false);
       setMessage(err instanceof Error ? err.message : 'Invalid JSON');
     }
   }
 
   return (
     <section>
-      <h1>Admin rules</h1>
-      <p className="muted">
-        Declarative rule documents drive progression and exit awards. They are
-        not hardcoded conditionals.
-      </p>
-      <form className="panel" onSubmit={onValidate}>
+      <div className="page-head">
+        <div>
+          <h1>Rule documents</h1>
+          <p>
+            Declarative rule documents drive progression and exit awards. They
+            are not hardcoded conditionals.
+          </p>
+        </div>
+      </div>
+
+      <form className="card" onSubmit={onValidate}>
         <label htmlFor="rules">Rule document</label>
         <textarea
           id="rules"
@@ -40,9 +50,21 @@ export default function AdminRulesPage() {
           value={json}
           onChange={(e) => setJson(e.target.value)}
           spellCheck={false}
+          style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
         />
-        <button type="submit">Validate JSON</button>
-        {message ? <p role="status">{message}</p> : null}
+        <div className="actions" style={{ marginTop: '1.1rem' }}>
+          <button type="submit">Validate JSON</button>
+        </div>
+        {message ? (
+          <p role="status" style={{ marginTop: '0.85rem' }}>
+            {ok != null ? (
+              <span className={`badge ${ok ? 'ok' : 'bad'}`}>
+                {ok ? 'Valid' : 'Invalid'}
+              </span>
+            ) : null}{' '}
+            {message}
+          </p>
+        ) : null}
       </form>
     </section>
   );

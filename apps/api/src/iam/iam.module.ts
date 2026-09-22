@@ -10,12 +10,13 @@ import { UsersService } from './users.service';
 import { MembershipsService } from './memberships.service';
 import { RolesService } from './roles.service';
 import { IamController } from './iam.controller';
+import { MeController } from './me.controller';
 import { ScopeResolver } from './scope-resolver';
 import { RevocationService } from './revocation.service';
 import { DelegationService } from './delegation.service';
 
 @Module({
-  controllers: [AuthController, IamController],
+  controllers: [AuthController, IamController, MeController],
   providers: [
     AuthService,
     PermissionService,

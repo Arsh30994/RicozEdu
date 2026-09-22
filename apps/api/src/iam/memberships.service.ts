@@ -87,4 +87,37 @@ export class MembershipsService {
       return result;
     });
   }
+
+  /**
+   * Cross-tenant membership discovery for the signed-in user.
+   * Uses migrator connection (BYPASSRLS) but always filters by JWT user id.
+   */
+  async listForUser(userId: string) {
+    return this.db.withMigratorTx(async (client) => {
+      const r = await client.query<{
+        id: string;
+        tenant_id: string;
+        tenant_slug: string;
+        tenant_name: string;
+        institution_id: string | null;
+        status: string;
+      }>(
+        `SELECT um.id, um.tenant_id, t.slug AS tenant_slug, t.name AS tenant_name,
+                um.institution_id, um.status
+         FROM ricoz.user_memberships um
+         JOIN ricoz.tenants t ON t.id = um.tenant_id
+         WHERE um.user_id = $1 AND um.status = 'active' AND t.status = 'active'
+         ORDER BY t.name`,
+        [userId],
+      );
+      return r.rows.map((row) => ({
+        membershipId: row.id,
+        tenantId: row.tenant_id,
+        tenantSlug: row.tenant_slug,
+        tenantName: row.tenant_name,
+        institutionId: row.institution_id,
+        status: row.status,
+      }));
+    });
+  }
 }

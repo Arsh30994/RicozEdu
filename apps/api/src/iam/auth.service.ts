@@ -105,14 +105,15 @@ export class AuthService {
     email: string,
     password: string,
     correlationId: string,
-  ): Promise<TokenPair> {
+  ): Promise<TokenPair & { user: { id: string; email: string } }> {
     const users = await this.db.query<{
       id: string;
+      email: string;
       password_hash: string;
       status: string;
       authorization_version: number;
     }>(
-      `SELECT id, password_hash, status, authorization_version
+      `SELECT id, email, password_hash, status, authorization_version
        FROM users WHERE lower(email) = lower($1)`,
       [email],
     );
@@ -152,6 +153,7 @@ export class AuthService {
       refreshToken: pair.refreshToken,
       expiresIn: pair.expiresIn,
       tokenType: 'Bearer',
+      user: { id: user.id, email: user.email },
     };
   }
 
