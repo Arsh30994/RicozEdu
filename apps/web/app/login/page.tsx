@@ -1,14 +1,27 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
-import { api, saveSession } from '../../lib/api';
+import { FormEvent, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  api,
+  loadPortalRole,
+  PortalRole,
+  savePortalRole,
+  saveSession,
+} from '../../lib/api';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [tenantId, setTenantId] = useState('');
+  const [role, setRole] = useState<PortalRole>('teacher');
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
+
+  useEffect(() => {
+    setRole(loadPortalRole());
+  }, []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -16,18 +29,23 @@ export default function LoginPage() {
     try {
       const res = await api<{
         accessToken: string;
+        refreshToken?: string;
         user?: { email?: string };
       }>('/v1/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
         session: null,
       });
+      savePortalRole(role);
       saveSession({
         accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
         tenantId,
         email: res.user?.email ?? email,
+        role,
       });
       setOk(true);
+      router.push(role === 'student' ? '/student/progress' : '/admin/curriculum');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     }
@@ -39,8 +57,8 @@ export default function LoginPage() {
         <div>
           <h1>Sign in</h1>
           <p>
-            Use your API credentials. Tenant id is sent as a header and checked
-            against membership — never trusted from the request body alone.
+            Choose Teacher or Student, then sign in. Tenant id is verified
+            server-side via membership.
           </p>
         </div>
       </div>
@@ -51,6 +69,28 @@ export default function LoginPage() {
         onSubmit={onSubmit}
         aria-describedby={error ? 'login-error' : undefined}
       >
+        <fieldset className="role-fieldset">
+          <legend>Sign in as</legend>
+          <div className="role-toggle login-role" role="group" aria-label="Role">
+            <button
+              type="button"
+              className={role === 'teacher' ? 'on' : undefined}
+              aria-pressed={role === 'teacher'}
+              onClick={() => setRole('teacher')}
+            >
+              Teacher
+            </button>
+            <button
+              type="button"
+              className={role === 'student' ? 'on' : undefined}
+              aria-pressed={role === 'student'}
+              onClick={() => setRole('student')}
+            >
+              Student
+            </button>
+          </div>
+        </fieldset>
+
         <label htmlFor="email">Email</label>
         <input
           id="email"
@@ -85,7 +125,9 @@ export default function LoginPage() {
           Resolved server-side via membership. Do not put secrets in the URL.
         </p>
         <div className="actions" style={{ marginTop: '1.1rem' }}>
-          <button type="submit">Sign in</button>
+          <button type="submit">
+            Sign in as {role === 'teacher' ? 'Teacher' : 'Student'}
+          </button>
         </div>
         {error ? (
           <p id="login-error" className="error" role="alert">
@@ -94,8 +136,7 @@ export default function LoginPage() {
         ) : null}
         {ok ? (
           <p role="status" style={{ marginTop: '0.85rem' }}>
-            <span className="badge ok">Signed in</span>{' '}
-            Continue to Curriculum or Degree progress.
+            <span className="badge ok">Signed in</span> Opening your workspace...
           </p>
         ) : null}
       </form>
