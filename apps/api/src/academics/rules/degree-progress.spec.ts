@@ -1,8 +1,9 @@
 import { computeDegreeProgress } from './degree-progress';
+import type { DegreeProgressInput } from './degree-progress';
 import type { RuleDocument } from '@ricozedu/shared-types';
 
 describe('degree-progress', () => {
-  const baseInput = () => ({
+  const baseInput = (): DegreeProgressInput => ({
     programmeVersionId: 'pv-1',
     curriculumVersionId: 'cur-1',
     progressionRuleIds: ['pr-1'],

@@ -1,9 +1,13 @@
+import { config as loadEnv } from 'dotenv';
+import { resolve } from 'node:path';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/all-exceptions.filter';
 import { CorrelationIdMiddleware } from '../src/common/correlation-id.middleware';
+
+loadEnv({ path: resolve(__dirname, '../../../.env') });
 
 /**
  * Requires DATABASE_URL, DATABASE_MIGRATE_URL, REDIS_URL, JWT secrets, BOOTSTRAP_ADMIN_TOKEN.
@@ -26,7 +30,7 @@ describe('Phase 0 tenant isolation (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('isolates students across two tenants', async () => {

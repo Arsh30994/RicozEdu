@@ -57,7 +57,7 @@ function progressSummary(r: DegreeProgressResult) {
 
 /**
  * Compare draft curriculum vs published curriculum for enrolled students.
- * Pure function — callers supply snapshots; no I/O.
+ * Pure function ï¿½ callers supply snapshots; no I/O.
  * Never recalculates published results.
  */
 export function simulateCurriculumChange(
@@ -136,7 +136,11 @@ export function simulateCurriculumChange(
     summaryExplanation:
       deltas.length === 0
         ? 'No enrolled students would be affected by publishing this curriculum draft. Published results are never recalculated.'
-        : `Publishing this curriculum draft would affect ${deltas.length} student(s): ${eligibilityLossCount} would lose eligibility, ${eligibilityGainCount} would gain eligibility, and ${unchangedCount} remain unchanged. Published results are never recalculated.`,
+        : [
+            `${deltas.length} enrolled ${deltas.length === 1 ? 'student' : 'students'} would be affected by publishing this curriculum draft:`,
+            `${eligibilityLossCount} would lose eligibility, ${eligibilityGainCount} would gain eligibility, and ${unchangedCount} remain unchanged.`,
+            'Published results are never recalculated.',
+          ].join(' '),
   };
 }
 

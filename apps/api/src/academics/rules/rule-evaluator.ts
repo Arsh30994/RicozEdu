@@ -248,11 +248,23 @@ export function evaluateRuleDocument(
 
   const hasClauses = Boolean(doc.all?.length || doc.any?.length || doc.not);
   const pass = hasClauses ? allPass && anyPass && notPass : true;
+  const waived = asSet(snapshot.waivedCourseVersionIds);
+  const waivedExplanations = nodeResults
+    .filter(
+      ({ node, pass: nodePass }) =>
+        nodePass &&
+        node.type === 'course_completed' &&
+        Boolean(node.courseVersionId && waived.has(node.courseVersionId)),
+    )
+    .map(({ explanation }) => explanation);
 
   return {
     pass,
     explanation: pass
-      ? 'All academic rule requirements are satisfied.'
+      ? [
+          'All academic rule requirements are satisfied.',
+          ...waivedExplanations,
+        ].join(' ')
       : explanations.join(' ') || 'Academic rule requirements are not satisfied.',
     details: {
       evaluatorVersion: EVALUATOR_VERSION,
