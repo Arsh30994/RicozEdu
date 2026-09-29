@@ -44,7 +44,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const s = loadSession();
-    setEmail(s?.email ?? 'priya.nair@gtbit.edu');
+    setEmail(s?.email ?? null);
     setRole(s?.role ?? loadPortalRole());
   }, [pathname]);
 
@@ -115,10 +115,32 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="sidebar-footer-label">Signed in as</div>
-          <div className="sidebar-footer-user" title={email ?? 'Priya Nair'}>
-            Priya Nair · Institution admin
-          </div>
+          {email ? (
+            <>
+              <div className="sidebar-footer-label">Signed in as</div>
+              <div className="sidebar-footer-user" title={email}>
+                {email}
+              </div>
+              <div className="sidebar-footer-role">
+                {role === 'teacher' ? 'Teacher' : 'Student'}
+              </div>
+              <button
+                className="sidebar-auth-action"
+                type="button"
+                onClick={handleSignOut}
+              >
+                Log out
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="sidebar-footer-label">Account</div>
+              <div className="sidebar-footer-user">Not signed in</div>
+              <Link className="sidebar-auth-action" href="/login">
+                Sign in
+              </Link>
+            </>
+          )}
         </div>
       </aside>
 
