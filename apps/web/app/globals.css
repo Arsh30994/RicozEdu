@@ -416,6 +416,30 @@ button.secondary:hover,
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.dashboard-page .metric-card:hover,
+.dashboard-page > .card:hover {
+  transform: translateY(-3px);
+  border-color: #35443b;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.24);
+}
+
+.dashboard-page .timeline-item {
+  transition: transform 160ms ease, background-color 160ms ease;
+}
+
+.dashboard-page .timeline-item:hover {
+  transform: translateX(3px);
+  background-color: rgba(255, 255, 255, 0.035);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-page .metric-card,
+  .dashboard-page .timeline-item {
+    transition: none;
+  }
 }
 
 .metric-value,

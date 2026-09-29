@@ -62,6 +62,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     router.push('/login');
   }
 
+  if (pathname === '/') return <>{children}</>;
+
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Main Navigation">

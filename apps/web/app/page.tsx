@@ -1,14 +1,5 @@
-'use client';
-
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import FranchiseLanding from '../components/FranchiseLanding';
 
 export default function HomePage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace('/admin/dashboard');
-  }, [router]);
-
-  return <p>Loading RicozEdu...</p>;
+  return <FranchiseLanding />;
 }

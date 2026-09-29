@@ -1,8 +1,10 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
 
 @Injectable()
 export class RedisService implements OnModuleDestroy {
+  private readonly logger = new Logger(RedisService.name);
+  private hasReportedConnectionError = false;
   readonly client: Redis | null;
 
   constructor() {
@@ -15,6 +17,14 @@ export class RedisService implements OnModuleDestroy {
       maxRetriesPerRequest: 1,
       enableOfflineQueue: false,
       lazyConnect: true,
+    });
+    this.client.on('error', (error: Error) => {
+      if (this.hasReportedConnectionError) return;
+      this.hasReportedConnectionError = true;
+      this.logger.warn(`Redis connection unavailable: ${error.message}`);
+    });
+    this.client.on('ready', () => {
+      this.hasReportedConnectionError = false;
     });
     this.client.connect().catch(() => {
       /* fail-open later */

@@ -39,7 +39,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <section>
+    <section className="dashboard-page">
       {/* Top Page Header */}
       <div className="view-header">
         <h1>Dashboard</h1>

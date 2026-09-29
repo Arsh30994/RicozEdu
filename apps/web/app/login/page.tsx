@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   api,
@@ -128,6 +129,9 @@ export default function LoginPage() {
           <button type="submit">
             Sign in as {role === 'teacher' ? 'Teacher' : 'Student'}
           </button>
+          <Link className="btn-secondary" href="/create-account">
+            Create account
+          </Link>
         </div>
         {error ? (
           <p id="login-error" className="error" role="alert">

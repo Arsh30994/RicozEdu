@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Source_Serif_4, Source_Sans_3 } from 'next/font/google';
 import { AppShell } from '../components/AppShell';
+import './franchise.css';
 import './globals.css';
 
 const display = Source_Serif_4({
@@ -16,8 +17,8 @@ const body = Source_Sans_3({
 });
 
 export const metadata = {
-  title: 'RicozEdu',
-  description: 'Education operating system',
+  title: 'Ricoz | Franchise Ecosystem',
+  description: 'Build and grow your business with the Ricoz franchise ecosystem.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
