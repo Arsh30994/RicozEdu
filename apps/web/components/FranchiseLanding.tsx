@@ -2,8 +2,16 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { api, saveSession, type Session } from '../lib/api';
+
+interface WorkspaceMembership {
+  membershipId: string;
+  tenantId: string;
+  tenantName: string;
+}
 
 const benefits = [
   ['01', 'Centralized lead generation', 'Receive customer inquiries through one unified platform and focus on converting the right opportunities.'],
@@ -54,22 +62,121 @@ function DashboardPreview({ compact = false }: { compact?: boolean }) {
 }
 
 export default function FranchiseLanding() {
+  const router = useRouter();
+  const [darkMode, setDarkMode] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [newsletterMessage, setNewsletterMessage] = useState('');
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [memberships, setMemberships] = useState<WorkspaceMembership[]>([]);
+  const [pendingSession, setPendingSession] = useState<Session | null>(null);
+  const [selectedTenantId, setSelectedTenantId] = useState('');
 
   useEffect(() => {
-    if (!contactOpen) return;
+    setDarkMode(window.localStorage.getItem('ricoz-theme') === 'dark');
+  }, []);
+
+  useEffect(() => {
+    if (!contactOpen && !loginOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setContactOpen(false);
+      if (event.key === 'Escape') {
+        setContactOpen(false);
+        setLoginOpen(false);
+      }
     };
+    document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [contactOpen]);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [contactOpen, loginOpen]);
 
   function openContact() {
     setSubmitted(false);
+    setLoginOpen(false);
     setContactOpen(true);
+  }
+
+  function openLogin() {
+    setLoginError(null);
+    setPendingSession(null);
+    setMemberships([]);
+    setLoginOpen(true);
+  }
+
+  function closeLogin() {
+    setLoginOpen(false);
+    setLoginPassword('');
+    setLoginError(null);
+    setPendingSession(null);
+  }
+
+  function toggleTheme() {
+    setDarkMode((current) => {
+      const next = !current;
+      window.localStorage.setItem('ricoz-theme', next ? 'dark' : 'light');
+      return next;
+    });
+  }
+
+  async function submitLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoginError(null);
+
+    if (pendingSession) {
+      if (!selectedTenantId) {
+        setLoginError('Choose a workspace to continue.');
+        return;
+      }
+      saveSession({ ...pendingSession, tenantId: selectedTenantId });
+      router.push('/admin/dashboard');
+      return;
+    }
+
+    setLoginLoading(true);
+    try {
+      const result = await api<{
+        accessToken: string;
+        refreshToken?: string;
+        user?: { email?: string };
+      }>('/v1/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+        session: null,
+      });
+      const session: Session = {
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        tenantId: '',
+        email: result.user?.email ?? loginEmail,
+        role: 'teacher',
+      };
+      const activeMemberships = await api<WorkspaceMembership[]>('/v1/me/memberships', {
+        method: 'GET',
+        session,
+      });
+
+      if (activeMemberships.length === 0) {
+        throw new Error('This account has no active workspace. Contact your administrator.');
+      }
+      if (activeMemberships.length === 1) {
+        saveSession({ ...session, tenantId: activeMemberships[0].tenantId });
+        router.push('/admin/dashboard');
+        return;
+      }
+      setPendingSession(session);
+      setMemberships(activeMemberships);
+      setSelectedTenantId(activeMemberships[0].tenantId);
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : 'Unable to sign in. Please try again.');
+    } finally {
+      setLoginLoading(false);
+    }
   }
 
   function submitContact(event: FormEvent<HTMLFormElement>) {
@@ -83,7 +190,7 @@ export default function FranchiseLanding() {
   }
 
   return (
-    <div className="franchise-site">
+    <div className="franchise-site" data-theme={darkMode ? 'dark' : 'light'}>
       <header className="fr-header">
         <div className="fr-header-inner">
           <Link className="fr-brand" href="/" aria-label="Ricoz home"><span className="fr-brand-mark">rZ</span><span>Ricoz</span></Link>
@@ -91,11 +198,14 @@ export default function FranchiseLanding() {
             <button className="fr-button fr-light" type="button" onClick={openContact}>Get in Touch</button>
             <button className="fr-button fr-red" type="button" onClick={openContact}>Become a Franchise Partner</button>
             <span className="fr-nav-divider" aria-hidden="true" />
-            <Link className="fr-button fr-outline" href="/login">Franchise Login</Link>
+            <button className="fr-button fr-outline" type="button" onClick={openLogin}>Franchise Login</button>
           </nav>
+          <button className="fr-theme-toggle" type="button" onClick={toggleTheme} aria-pressed={darkMode} aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
+            {darkMode ? 'Light mode' : 'Dark mode'}
+          </button>
           <details className="fr-mobile-nav">
             <summary aria-label="Open navigation"><span /><span /><span /></summary>
-            <nav aria-label="Mobile navigation"><a href="#why">Why Ricoz</a><a href="#platform">Platform</a><a href="#faq">FAQs</a><button type="button" onClick={openContact}>Get in Touch</button><Link href="/login">Franchise Login</Link></nav>
+            <nav aria-label="Mobile navigation"><a href="#why">Why Ricoz</a><a href="#platform">Platform</a><a href="#faq">FAQs</a><button type="button" onClick={openContact}>Get in Touch</button><button type="button" onClick={openLogin}>Franchise Login</button></nav>
           </details>
         </div>
       </header>
@@ -140,6 +250,8 @@ export default function FranchiseLanding() {
 
         <section className="fr-final-cta" id="partner"><span className="fr-kicker">Your next chapter starts here</span><h2>Build your business with Ricoz</h2><p>Apply today and discover how technology, training and operational support can help you grow.</p><div className="fr-actions"><button className="fr-button fr-light" type="button" onClick={openContact}>Schedule a Consultation</button><button className="fr-button fr-red" type="button" onClick={openContact}>Become a Franchise Partner</button></div></section>
       </div>
+
+      {loginOpen && <div className="fr-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeLogin(); }}><section className="fr-modal fr-login-modal" role="dialog" aria-modal="true" aria-labelledby="fr-login-title"><button className="fr-modal-close" type="button" aria-label="Close login" onClick={closeLogin}>×</button><h2 id="fr-login-title">Login to the <span>Ricoz Franchise Portal</span></h2>{pendingSession ? <form className="fr-login-form" onSubmit={submitLogin}><label>Workspace<select value={selectedTenantId} onChange={(event) => setSelectedTenantId(event.target.value)} required>{memberships.map((membership) => <option key={membership.membershipId} value={membership.tenantId}>{membership.tenantName}</option>)}</select></label><button className="fr-button fr-red fr-submit" type="submit">Continue</button></form> : <form className="fr-login-form" onSubmit={submitLogin}><label>Email Address<input autoFocus name="email" type="email" autoComplete="username" required value={loginEmail} onChange={(event) => setLoginEmail(event.target.value)} placeholder="Enter your franchise admin email address" /></label><label>Password<input name="password" type="password" autoComplete="current-password" minLength={12} required value={loginPassword} onChange={(event) => setLoginPassword(event.target.value)} placeholder="Enter your password" /></label><button className="fr-button fr-red fr-submit" type="submit" disabled={loginLoading}>{loginLoading ? 'Signing in…' : 'Login'}</button></form>}{loginError && <p className="fr-login-error" role="alert">{loginError}</p>}<p className="fr-register-line">Don&apos;t have an account? <button type="button" onClick={openContact}>Register here</button></p></section></div>}
 
       <footer className="fr-footer" id="contact">
         <div className="fr-footer-main"><div><Link className="fr-brand fr-footer-brand" href="/"><span className="fr-brand-mark">rZ</span><span>Ricoz</span></Link><p>Empowering entrepreneurs with technology, operational support and business opportunities through a modern franchise ecosystem.</p><button type="button" onClick={openContact}>Talk with our team ↗</button></div><nav aria-label="Footer"><div><b>Franchise</b><a href="#partner">Become a partner</a><a href="#why">Business models</a><a href="#platform">Franchise platform</a><a href="#faq">FAQs</a></div><div><b>Explore</b><a href="#why">About Ricoz</a><button type="button" onClick={openContact}>Contact us</button><a href="#platform">Partner support</a></div><div><b>Information</b><a href="#contact">Privacy policy</a><a href="#contact">Terms and conditions</a><a href="#contact">Franchise agreement</a></div></nav></div>
