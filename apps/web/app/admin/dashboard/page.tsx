@@ -21,6 +21,14 @@ export default function DashboardPage() {
   const totalCampuses = state.institutions.reduce((acc, i) => acc + i.campusesCount, 0);
   const totalDepartments = state.departments.length;
   const totalStudentsFormatted = state.totalStudents.toLocaleString();
+  const facultyCount = state.people.filter((person) => person.relation === 'Faculty').length;
+  const adminCount = state.userRoles.filter((user) => user.role.toLocaleLowerCase().includes('admin')).length;
+  const pendingReviewCount = state.duplicates.filter((duplicate) => duplicate.status === 'flagged').length;
+  const activeStudents = state.students.filter((student) => student.status === 'Active').length;
+  const unassignedDepartments = state.departments.filter((department) => {
+    const admin = department.admin?.trim();
+    return !admin || /^(unassigned|—|-|–)$/i.test(admin);
+  }).length;
 
   function handleSetupClick(actionType: string) {
     if (actionType === 'assign_admin') {
@@ -40,71 +48,73 @@ export default function DashboardPage() {
 
   return (
     <section className="dashboard-page">
-      {/* Top Page Header */}
       <div className="view-header">
         <h1>Dashboard</h1>
-        <div className="campus-pill">
-          <span>{state.selectedCampus}</span>
-        </div>
       </div>
 
-      {/* 2x2 Metric Cards Grid */}
       <div className="metrics-grid">
-        <div className="metric-card">
+        <article className="metric-card">
+          <span className="metric-icon" aria-hidden="true">◆</span>
           <div className="metric-value">{state.institutions.length}</div>
           <div className="metric-label">Institutions</div>
-        </div>
+        </article>
 
-        <div className="metric-card">
+        <article className="metric-card">
+          <span className="metric-icon" aria-hidden="true">▦</span>
           <div className="metric-value">{totalCampuses}</div>
           <div className="metric-label">Campuses</div>
-        </div>
+          <div className="metric-status positive">All active</div>
+        </article>
 
-        <div className="metric-card">
+        <article className="metric-card">
+          <span className="metric-icon" aria-hidden="true">▤</span>
           <div className="metric-value">{totalDepartments}</div>
           <div className="metric-label">Departments</div>
-        </div>
+          <div className="metric-status warning">{unassignedDepartments} unassigned</div>
+        </article>
 
-        <div className="metric-card">
+        <article className="metric-card">
+          <span className="metric-icon" aria-hidden="true">◎</span>
           <div className="metric-value">{totalStudentsFormatted}</div>
           <div className="metric-label">Students</div>
-        </div>
+          <div className="metric-status positive">{activeStudents} active records</div>
+        </article>
       </div>
 
-      {/* Recent Audit Activity */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">Recent audit activity</h2>
-          <span className="pill-badge live">Live</span>
-        </div>
+      <div className="dashboard-panels">
+        <section className="card people-role-card">
+          <div className="card-header"><h2 className="card-title">People by role</h2></div>
+          <div className="role-metrics">
+            <div className="role-tile students"><strong>{totalStudentsFormatted}</strong><span>Students</span></div>
+            <div className="role-tile faculty"><strong>{facultyCount}</strong><span>Faculty</span></div>
+            <div className="role-tile admins"><strong>{adminCount}</strong><span>Admins</span></div>
+            <div className="role-tile review"><strong>{pendingReviewCount}</strong><span>Pending review</span></div>
+          </div>
+        </section>
 
-        <div className="table-wrapper">
-          <table className="custom-table">
-            <tbody>
-              {state.auditLogs.slice(0, 5).map((log) => (
-                <tr key={log.id}>
-                  <td style={{ width: '55%', fontWeight: 400 }}>{log.action}</td>
-                  <td style={{ width: '25%' }}>
-                    <span
-                      className={`pill-badge ${
-                        log.status === 'Success'
-                          ? 'success'
-                          : log.status === 'Blocked' || log.status === 'Failed'
-                          ? 'blocked'
-                          : 'warning'
-                      }`}
-                    >
-                      {log.status}
-                    </span>
-                  </td>
-                  <td style={{ width: '20%', textAlign: 'right', color: 'var(--ink-secondary)' }}>
-                    {log.timeAgo}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <section className="card audit-card">
+          <div className="card-header">
+            <h2 className="card-title">Recent audit activity</h2>
+            <span className="pill-badge live">Live</span>
+          </div>
+          <div className="table-wrapper">
+            <table className="custom-table">
+              <tbody>
+                {state.auditLogs.slice(0, 5).map((log) => (
+                  <tr key={log.id}>
+                    <td style={{ width: '55%', fontWeight: 400 }}>{log.action}</td>
+                    <td style={{ width: '25%' }}>
+                      <span className={`pill-badge ${log.status === 'Success' ? 'success' : log.status === 'Blocked' || log.status === 'Failed' ? 'blocked' : 'warning'}`}>
+                        {log.status}
+                      </span>
+                    </td>
+                    <td style={{ width: '20%', textAlign: 'right', color: 'var(--ink-secondary)' }}>{log.timeAgo}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
       {/* Pending Setup */}

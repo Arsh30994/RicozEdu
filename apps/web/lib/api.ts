@@ -70,6 +70,9 @@ export async function api<T>(
     headers['X-Tenant-Id'] = session.tenantId;
   }
   const res = await fetch(`${apiBase()}${path}`, { ...opts, headers });
+  if (res.status === 204) {
+    return undefined as T;
+  }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(body?.message ?? `Request failed (${res.status})`);
