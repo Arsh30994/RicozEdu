@@ -9,7 +9,6 @@ import {
 
 export default function AuditLogPage() {
   const [state, setState] = useState<AppState>(dataConnector.getState());
-  const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [inspectEvent, setInspectEvent] = useState<AuditActivity | null>(null);
 
   useEffect(() => {
@@ -19,58 +18,27 @@ export default function AuditLogPage() {
     return () => unsub();
   }, []);
 
-  const filteredLogs = state.auditLogs.filter((log) => {
-    if (filterStatus === 'ALL') return true;
-    return log.status === filterStatus;
-  });
-
   return (
     <section>
-      {/* Top Header */}
       <div className="view-header">
         <h1>Audit log</h1>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <span className="pill-badge live">Live Ingestion Active</span>
-        </div>
+        <span className="pill-badge readonly">Read-only</span>
       </div>
 
-      {/* Filter Bar */}
-      <div className="search-container">
-        <select
-          className="search-input-box"
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          style={{ maxWidth: '240px' }}
-        >
-          <option value="ALL">All Event Types</option>
-          <option value="Success">Success</option>
-          <option value="Blocked">Blocked</option>
-          <option value="Warning">Warning</option>
-          <option value="Failed">Failed</option>
-        </select>
-        <span style={{ color: 'var(--ink-secondary)', fontSize: '0.9rem' }}>
-          Showing {filteredLogs.length} audit entries
-        </span>
-      </div>
-
-      {/* Audit Events Table */}
       <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">Immutable Audit Trail</h2>
-        </div>
-
         <div className="table-wrapper">
           <table className="custom-table">
             <thead>
               <tr>
-                <th style={{ width: '40%' }}>Action / Event</th>
-                <th style={{ width: '18%' }}>Status</th>
-                <th style={{ width: '22%' }}>Actor</th>
-                <th style={{ width: '20%', textAlign: 'right' }}>Time</th>
+                <th style={{ width: '16%' }}>Time</th>
+                <th style={{ width: '20%' }}>Actor</th>
+                <th style={{ width: '24%' }}>Action</th>
+                <th style={{ width: '22%' }}>Resource</th>
+                <th style={{ width: '18%' }}>Result</th>
               </tr>
             </thead>
             <tbody>
-              {filteredLogs.map((log) => {
+              {state.auditLogs.map((log) => {
                 let badgeClass = 'success';
                 if (log.status === 'Blocked' || log.status === 'Failed') badgeClass = 'blocked';
                 else if (log.status === 'Warning') badgeClass = 'warning';
@@ -82,13 +50,12 @@ export default function AuditLogPage() {
                     onClick={() => setInspectEvent(log)}
                     title="Click to inspect metadata"
                   >
-                    <td style={{ color: '#ffffff', fontWeight: 400 }}>{log.action}</td>
+                    <td>{log.timeAgo}</td>
+                    <td>{log.actor}</td>
+                    <td>{log.action}</td>
+                    <td>{log.resource}</td>
                     <td>
-                      <span className={`pill-badge ${badgeClass}`}>{log.status}</span>
-                    </td>
-                    <td style={{ color: 'var(--ink-primary)' }}>{log.actor}</td>
-                    <td style={{ textAlign: 'right', color: 'var(--ink-secondary)' }}>
-                      {log.timeAgo}
+                      <span className={`pill-badge ${badgeClass}`}>{log.result ?? log.status}</span>
                     </td>
                   </tr>
                 );

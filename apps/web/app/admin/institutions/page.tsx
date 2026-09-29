@@ -132,7 +132,7 @@ export default function InstitutionsPage() {
                 <tr key={inst.id}>
                   <td style={{ fontWeight: 500, color: '#ffffff' }}>{inst.name}</td>
                   <td>{inst.campusesCount}</td>
-                  <td>{state.departments.length}</td>
+                  <td>{inst.departmentsCount}</td>
                   <td>
                     <span className="pill-badge active">{inst.status}</span>
                   </td>

@@ -10,6 +10,7 @@ import {
 export default function UsersRolesPage() {
   const [state, setState] = useState<AppState>(dataConnector.getState());
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Assign Role Form state
   const [userName, setUserName] = useState('');
@@ -28,16 +29,37 @@ export default function UsersRolesPage() {
     e.preventDefault();
     if (!userName.trim() || !userEmail.trim()) return;
 
-    dataConnector.assignUserRole({
+    const payload = {
       name: userName.trim(),
       email: userEmail.trim(),
       role: userRole,
       department: userDept,
-    });
+    };
+    if (editingId) dataConnector.updateUserRole(editingId, payload);
+    else dataConnector.assignUserRole(payload);
 
     setUserName('');
     setUserEmail('');
+    setEditingId(null);
     setShowAssignModal(false);
+  }
+
+  function openInvite() {
+    setEditingId(null);
+    setUserName('');
+    setUserEmail('');
+    setUserRole('Faculty');
+    setUserDept('Computer Science & Engg.');
+    setShowAssignModal(true);
+  }
+
+  function openManage(user: UserRoleItem) {
+    setEditingId(user.id);
+    setUserName(user.name);
+    setUserEmail(user.email);
+    setUserRole(user.role);
+    setUserDept(user.department || 'Computer Science & Engg.');
+    setShowAssignModal(true);
   }
 
   return (
@@ -45,98 +67,45 @@ export default function UsersRolesPage() {
       {/* Top Header */}
       <div className="view-header">
         <h1>Users & roles</h1>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => setShowAssignModal(true)}
-        >
-          + Assign role
+        <button type="button" className="btn-primary" onClick={openInvite}>
+          + Invite user
         </button>
       </div>
 
-      {/* User Memberships Card */}
       <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">User Memberships & Permissions</h2>
-        </div>
-
         <div className="table-wrapper">
           <table className="custom-table">
             <thead>
               <tr>
-                <th style={{ width: '25%' }}>Name</th>
-                <th style={{ width: '30%' }}>Email</th>
-                <th style={{ width: '25%' }}>Assigned Role</th>
-                <th style={{ width: '20%' }}>Status</th>
+                <th style={{ width: '22%' }}>User</th>
+                <th style={{ width: '24%' }}>Role</th>
+                <th style={{ width: '24%' }}>Scope</th>
+                <th style={{ width: '14%' }}>Status</th>
+                <th style={{ width: '16%' }}></th>
               </tr>
             </thead>
             <tbody>
               {state.userRoles.map((u) => (
                 <tr key={u.id}>
-                  <td style={{ color: '#ffffff', fontWeight: 500 }}>{u.name}</td>
-                  <td>{u.email}</td>
+                  <td style={{ fontWeight: 500 }}>{u.name}</td>
+                  <td>{u.role}</td>
+                  <td>{u.scope || u.department || 'GTBIT Delhi'}</td>
                   <td>
-                    <span style={{ color: 'var(--ink-primary)' }}>{u.role}</span>
-                    {u.department && (
-                      <span style={{ color: 'var(--ink-secondary)', fontSize: '0.82rem', display: 'block' }}>
-                        {u.department}
-                      </span>
-                    )}
+                    <span className={`pill-badge ${u.status === 'Active' ? 'active' : 'neutral'}`}>
+                      {u.status === 'Disabled' ? 'Inactive' : u.status}
+                    </span>
                   </td>
-                  <td>
-                    <span className="pill-badge active">{u.status}</span>
+                  <td style={{ textAlign: 'right' }}>
+                    {u.status === 'Active' ? (
+                      <button type="button" className="btn-secondary" onClick={() => openManage(u)}>
+                        Manage
+                      </button>
+                    ) : (
+                      <span style={{ color: 'var(--ink-muted)', fontSize: '0.85rem' }}>No actions available</span>
+                    )}
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Role Definitions Matrix */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">Defined Role Scopes</h2>
-        </div>
-
-        <div className="table-wrapper">
-          <table className="custom-table">
-            <thead>
-              <tr>
-                <th style={{ width: '25%' }}>Role</th>
-                <th style={{ width: '45%' }}>Permissions</th>
-                <th style={{ width: '30%' }}>Scope Level</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style={{ color: '#ffffff', fontWeight: 500 }}>Institution Admin</td>
-                <td style={{ color: 'var(--ink-secondary)' }}>
-                  tenant.read, tenant.manage, institution.manage, membership.manage, student.manage, audit.read
-                </td>
-                <td>Tenant / Institution</td>
-              </tr>
-              <tr>
-                <td style={{ color: '#ffffff', fontWeight: 500 }}>Faculty / Teacher</td>
-                <td style={{ color: 'var(--ink-secondary)' }}>
-                  academic.read, academic.manage, grade.manage, student.read
-                </td>
-                <td>Department / Course</td>
-              </tr>
-              <tr>
-                <td style={{ color: '#ffffff', fontWeight: 500 }}>Department Admin</td>
-                <td style={{ color: 'var(--ink-secondary)' }}>
-                  academic.manage, student.read, student.manage, grade.manage
-                </td>
-                <td>Department</td>
-              </tr>
-              <tr>
-                <td style={{ color: '#ffffff', fontWeight: 500 }}>Student</td>
-                <td style={{ color: 'var(--ink-secondary)' }}>
-                  student.read (self), academic.read
-                </td>
-                <td>Self</td>
-              </tr>
             </tbody>
           </table>
         </div>
@@ -146,7 +115,7 @@ export default function UsersRolesPage() {
       {showAssignModal && (
         <div className="modal-backdrop" onClick={() => setShowAssignModal(false)}>
           <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
-            <h2>Assign role & permissions</h2>
+            <h2>{editingId ? 'Manage user' : 'Invite user'}</h2>
             <p>Grant administrative or academic capabilities to an institution user.</p>
 
             <form onSubmit={handleAssignRole}>
@@ -180,10 +149,9 @@ export default function UsersRolesPage() {
                   value={userRole}
                   onChange={(e) => setUserRole(e.target.value)}
                 >
-                  <option value="Institution admin">Institution admin</option>
+                  <option value="institution administrator">institution administrator</option>
+                  <option value="Department administrator">Department administrator</option>
                   <option value="Faculty">Faculty</option>
-                  <option value="Department admin">Department admin</option>
-                  <option value="Examination officer">Examination officer</option>
                   <option value="Student">Student</option>
                 </select>
               </div>
@@ -207,12 +175,15 @@ export default function UsersRolesPage() {
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={() => setShowAssignModal(false)}
+                  onClick={() => {
+                    setEditingId(null);
+                    setShowAssignModal(false);
+                  }}
                 >
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary">
-                  Assign Role
+                  {editingId ? 'Save' : 'Invite user'}
                 </button>
               </div>
             </form>

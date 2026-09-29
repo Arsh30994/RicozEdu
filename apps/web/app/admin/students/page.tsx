@@ -120,13 +120,7 @@ export default function StudentsPage() {
                     <td style={{ color: '#ffffff', fontWeight: 500 }}>{student.studentNo}</td>
                     <td>{student.name}</td>
                     <td>
-                      {student.status === 'Withdrawn' ? (
-                        <span style={{ color: 'var(--ink-secondary)', fontSize: '0.92rem' }}>
-                          Withdrawn
-                        </span>
-                      ) : (
-                        <span className={`pill-badge ${badgeClass}`}>{student.status}</span>
-                      )}
+                      <span className={`pill-badge ${badgeClass}`}>{student.status}</span>
                     </td>
                     <td>{student.campus}</td>
                   </tr>

@@ -67,6 +67,7 @@ export interface AuditActivity {
   timestamp: string;
   actor: string;
   resource?: string;
+  result?: string;
   details?: Record<string, unknown>;
 }
 
@@ -84,11 +85,12 @@ export interface UserRoleItem {
   email: string;
   role: string;
   department?: string;
-  status: 'Active' | 'Invited' | 'Disabled';
+  scope?: string;
+  status: 'Active' | 'Invited' | 'Disabled' | 'Inactive';
   assignedAt: string;
 }
 
-const STORAGE_KEY = 'ricozedu.app_state_v1';
+const STORAGE_KEY = 'ricozedu.app_state_v2';
 
 const INITIAL_INSTITUTIONS: Institution[] = [
   {
@@ -317,39 +319,40 @@ const INITIAL_STUDENTS: StudentMembership[] = [
 const INITIAL_AUDIT: AuditActivity[] = [
   {
     id: 'aud-1',
-    action: 'Role assigned — Faculty',
+    action: 'role.assign',
     status: 'Success',
-    timeAgo: '2 min ago',
-    timestamp: '2026-09-27T01:01:00Z',
+    timeAgo: '10:42',
+    timestamp: '2026-09-29T10:42:00+05:30',
     actor: 'Priya Nair',
-    resource: 'role:faculty -> rekha.sinha@gtbit.edu',
+    resource: 'user:manav.arora',
   },
   {
     id: 'aud-2',
-    action: 'Student status → Active',
+    action: 'student.status_change',
     status: 'Success',
-    timeAgo: '18 min ago',
-    timestamp: '2026-09-27T00:45:00Z',
-    actor: 'Priya Nair',
+    timeAgo: '10:24',
+    timestamp: '2026-09-29T10:24:00+05:30',
+    actor: 'system',
     resource: 'student:GTB24CS041',
   },
   {
     id: 'aud-3',
-    action: 'Cross-tenant read attempt',
+    action: 'tenant.read',
     status: 'Blocked',
-    timeAgo: '1 hr ago',
-    timestamp: '2026-09-26T23:55:00Z',
-    actor: 'system:security-policy',
-    resource: 'tenant_isolation_boundary',
+    result: 'Blocked — wrong tenant',
+    timeAgo: '09:31',
+    timestamp: '2026-09-29T09:31:00+05:30',
+    actor: 'unknown',
+    resource: 'tenant:st-xavier',
   },
   {
     id: 'aud-4',
-    action: 'Department created — CSE',
+    action: 'department.create',
     status: 'Success',
     timeAgo: 'Yesterday',
-    timestamp: '2026-09-26T14:30:00Z',
+    timestamp: '2026-09-28T14:30:00+05:30',
     actor: 'Priya Nair',
-    resource: 'dept:CSE',
+    resource: 'dept:cse',
   },
 ];
 
@@ -379,7 +382,8 @@ const INITIAL_USERS: UserRoleItem[] = [
     id: 'u-1',
     name: 'Priya Nair',
     email: 'priya.nair@gtbit.edu',
-    role: 'Institution admin',
+    role: 'institution administrator',
+    scope: 'GTBIT Delhi',
     status: 'Active',
     assignedAt: '01 Jun 2026',
   },
@@ -387,28 +391,21 @@ const INITIAL_USERS: UserRoleItem[] = [
     id: 'u-2',
     name: 'Rekha Sinha',
     email: 'rekha.sinha@gtbit.edu',
-    role: 'Faculty',
+    role: 'Department administrator',
     department: 'Electronics & Comm.',
+    scope: 'Electronics & Comm.',
     status: 'Active',
     assignedAt: '03 Aug 2026',
   },
   {
     id: 'u-3',
-    name: 'Amit Verma',
-    email: 'amit.verma@gtbit.edu',
-    role: 'Department admin',
-    department: 'Information Technology',
-    status: 'Active',
-    assignedAt: '15 Aug 2026',
-  },
-  {
-    id: 'u-4',
-    name: 'Arshdeep Singh',
-    email: 'arshdeep@gtbit.edu',
-    role: 'Student',
+    name: 'Manav Arora',
+    email: 'manav.arora@gtbit.edu',
+    role: 'Faculty',
     department: 'Computer Science & Engg.',
-    status: 'Active',
-    assignedAt: '12 Sep 2026',
+    scope: 'CSE · Main campus',
+    status: 'Inactive',
+    assignedAt: '01 Sep 2026',
   },
 ];
 
@@ -451,6 +448,7 @@ class DataConnectorService {
 
   private load() {
     try {
+      localStorage.removeItem('ricozedu.app_state_v1');
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -717,6 +715,7 @@ class DataConnectorService {
       email: data.email,
       role: data.role,
       department: data.department,
+      scope: data.department || 'GTBIT Delhi',
       status: 'Active',
       assignedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
     };
@@ -724,6 +723,26 @@ class DataConnectorService {
     this.addAudit(`Role assigned — ${data.role} (${data.name})`, 'Success', 'Priya Nair');
     this.save();
     return newUser;
+  }
+
+  public updateUserRole(
+    id: string,
+    data: { name: string; email: string; role: string; department?: string },
+  ) {
+    this.state.userRoles = this.state.userRoles.map((user) =>
+      user.id === id
+        ? {
+            ...user,
+            name: data.name,
+            email: data.email,
+            role: data.role,
+            department: data.department,
+            scope: data.department || user.scope || 'GTBIT Delhi',
+          }
+        : user,
+    );
+    this.addAudit(`role.assign`, 'Success', 'Priya Nair');
+    this.save();
   }
 
   public setSelectedCampus(campus: string) {

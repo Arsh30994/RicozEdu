@@ -77,7 +77,9 @@ export default function DashboardPage() {
           <span className="metric-icon" aria-hidden="true">◎</span>
           <div className="metric-value">{totalStudentsFormatted}</div>
           <div className="metric-label">Students</div>
-          <div className="metric-status positive">{activeStudents} active records</div>
+          <div className="metric-status positive">
+            {activeStudents} active {activeStudents === 1 ? 'record' : 'records'}
+          </div>
         </article>
       </div>
 

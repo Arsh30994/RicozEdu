@@ -1,31 +1,25 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  api,
-  loadPortalRole,
-  PortalRole,
-  savePortalRole,
-  saveSession,
-} from '../../lib/api';
+import { api, savePortalRole, saveSession } from '../../lib/api';
+
+const REMEMBER_KEY = 'ricozedu.rememberEmail';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('priya.nair@gtbit.edu');
   const [password, setPassword] = useState('');
-  const [tenantId, setTenantId] = useState('');
-  const [role, setRole] = useState<PortalRole>('teacher');
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [ok, setOk] = useState(false);
 
   useEffect(() => {
-    setRole(loadPortalRole());
+    const saved = window.localStorage.getItem(REMEMBER_KEY);
+    if (saved) setEmail(saved);
   }, []);
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault();
     setError(null);
     try {
       const res = await api<{
@@ -37,62 +31,33 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
         session: null,
       });
-      savePortalRole(role);
+      if (remember) window.localStorage.setItem(REMEMBER_KEY, email);
+      else window.localStorage.removeItem(REMEMBER_KEY);
+      savePortalRole('teacher');
       saveSession({
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
-        tenantId,
+        tenantId: '',
         email: res.user?.email ?? email,
-        role,
+        role: 'teacher',
       });
-      setOk(true);
-      router.push(role === 'student' ? '/student/progress' : '/admin/curriculum');
+      router.push('/admin/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     }
   }
 
+  function continueToDemo() {
+    router.push('/admin/dashboard');
+  }
+
   return (
-    <section>
-      <div className="page-head">
-        <div>
-          <h1>Sign in</h1>
-          <p>
-            Choose Teacher or Student, then sign in. Tenant id is verified
-            server-side via membership.
-          </p>
-        </div>
-      </div>
-
-      <form
-        className="card"
-        style={{ maxWidth: 480 }}
-        onSubmit={onSubmit}
-        aria-describedby={error ? 'login-error' : undefined}
-      >
-        <fieldset className="role-fieldset">
-          <legend>Sign in as</legend>
-          <div className="role-toggle login-role" role="group" aria-label="Role">
-            <button
-              type="button"
-              className={role === 'teacher' ? 'on' : undefined}
-              aria-pressed={role === 'teacher'}
-              onClick={() => setRole('teacher')}
-            >
-              Teacher
-            </button>
-            <button
-              type="button"
-              className={role === 'student' ? 'on' : undefined}
-              aria-pressed={role === 'student'}
-              onClick={() => setRole('student')}
-            >
-              Student
-            </button>
-          </div>
-        </fieldset>
-
-        <label htmlFor="email">Email</label>
+    <section className="console-login">
+      <form className="console-login-card" onSubmit={onSubmit} aria-describedby={error ? 'login-error' : undefined}>
+        <h1>
+          Login to the <span>RicozEdu</span> Console
+        </h1>
+        <label htmlFor="email">Email Address</label>
         <input
           id="email"
           name="email"
@@ -100,7 +65,7 @@ export default function LoginPage() {
           autoComplete="username"
           required
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(event) => setEmail(event.target.value)}
         />
         <label htmlFor="password">Password</label>
         <input
@@ -111,38 +76,30 @@ export default function LoginPage() {
           required
           minLength={12}
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(event) => setPassword(event.target.value)}
         />
-        <label htmlFor="tenantId">Tenant ID</label>
-        <input
-          id="tenantId"
-          name="tenantId"
-          required
-          value={tenantId}
-          onChange={(e) => setTenantId(e.target.value)}
-          aria-describedby="tenant-help"
-        />
-        <p id="tenant-help" className="muted" style={{ marginTop: '0.4rem' }}>
-          Resolved server-side via membership. Do not put secrets in the URL.
-        </p>
-        <div className="actions" style={{ marginTop: '1.1rem' }}>
-          <button type="submit">
-            Sign in as {role === 'teacher' ? 'Teacher' : 'Student'}
-          </button>
-          <Link className="btn-secondary" href="/create-account">
-            Create account
-          </Link>
-        </div>
+        <label className="console-login-remember">
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={(event) => setRemember(event.target.checked)}
+          />
+          Remember me
+        </label>
+        <button className="btn-primary" type="submit">
+          Login
+        </button>
         {error ? (
           <p id="login-error" className="error" role="alert">
             {error}
           </p>
         ) : null}
-        {ok ? (
-          <p role="status" style={{ marginTop: '0.85rem' }}>
-            <span className="badge ok">Signed in</span> Opening your workspace...
-          </p>
-        ) : null}
+        <p className="console-login-help">
+          Trouble signing in?{' '}
+          <button type="button" onClick={continueToDemo}>
+            Continue to demo console
+          </button>
+        </p>
       </form>
     </section>
   );
