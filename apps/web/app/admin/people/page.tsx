@@ -118,7 +118,7 @@ export default function PeoplePage() {
               <tbody>
                 {flaggedDuplicates.map((dup) => (
                   <tr key={dup.id}>
-                    <td style={{ color: '#ffffff', fontWeight: 400 }}>{dup.name}</td>
+                    <td style={{ color: 'var(--ink-primary)', fontWeight: 400 }}>{dup.name}</td>
                     <td>{dup.email}</td>
                     <td style={{ color: 'var(--ink-secondary)' }}>{dup.matchReason}</td>
                     <td style={{ textAlign: 'right' }}>
@@ -157,7 +157,7 @@ export default function PeoplePage() {
             <tbody>
               {filteredPeople.map((person) => (
                 <tr key={person.id}>
-                  <td style={{ color: '#ffffff', fontWeight: 400 }}>{person.name}</td>
+                  <td style={{ color: 'var(--ink-primary)', fontWeight: 400 }}>{person.name}</td>
                   <td>{person.email}</td>
                   <td>{person.relation}</td>
                   <td style={{ color: 'var(--ink-secondary)' }}>{person.addedDate}</td>
@@ -269,7 +269,7 @@ export default function PeoplePage() {
             >
               <div style={{ marginBottom: '0.4rem' }}>
                 <span style={{ color: 'var(--ink-secondary)' }}>Reason: </span>
-                <span style={{ color: '#ffffff' }}>{reviewingDuplicate.matchReason}</span>
+                <span style={{ color: 'var(--ink-primary)' }}>{reviewingDuplicate.matchReason}</span>
               </div>
               <div>
                 <span style={{ color: 'var(--ink-secondary)' }}>Target Record ID: </span>

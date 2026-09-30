@@ -41,11 +41,34 @@ const SECONDARY_NAV_ITEMS: NavItem[] = [
   { href: '/sessions/welcome', label: 'Sessions (1-6)' },
 ];
 
+const THEME_KEY = 'ricozedu.consoleTheme';
+type ConsoleTheme = 'dark' | 'light';
+
 function nameFromEmail(email: string): string {
   return email
     .split('@')[0]
     .replace(/[._-]/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function ThemeSwitch({
+  theme,
+  onChange,
+}: {
+  theme: ConsoleTheme;
+  onChange: (next: ConsoleTheme) => void;
+}) {
+  return (
+    <div className="theme-switch" data-active={theme} role="group" aria-label="Color theme">
+      <span className="theme-switch-knob" aria-hidden />
+      <button type="button" aria-pressed={theme === 'light'} onClick={() => onChange('light')}>
+        Light
+      </button>
+      <button type="button" aria-pressed={theme === 'dark'} onClick={() => onChange('dark')}>
+        Dark
+      </button>
+    </div>
+  );
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -54,12 +77,23 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [email, setEmail] = useState<string | null>(null);
   const [role, setRole] = useState<PortalRole>('teacher');
   const [showTools, setShowTools] = useState(false);
+  const [theme, setTheme] = useState<ConsoleTheme>('dark');
 
   useEffect(() => {
     const session = loadSession();
     setEmail(session?.email ?? null);
     setRole(session?.role ?? loadPortalRole());
   }, [pathname]);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(THEME_KEY);
+    if (saved === 'light' || saved === 'dark') setTheme(saved);
+  }, []);
+
+  function applyTheme(next: ConsoleTheme) {
+    setTheme(next);
+    window.localStorage.setItem(THEME_KEY, next);
+  }
 
   function isItemActive(item: NavItem): boolean {
     if (pathname === item.href) return true;
@@ -83,13 +117,24 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   }
 
-  if (pathname === '/' || pathname === '/login') return <>{children}</>;
+  if (pathname === '/') return <>{children}</>;
+
+  if (pathname === '/login') {
+    return (
+      <div className="console console-root" data-theme={theme}>
+        <div className="theme-switch-anchor">
+          <ThemeSwitch theme={theme} onChange={applyTheme} />
+        </div>
+        {children}
+      </div>
+    );
+  }
 
   const displayName = email ? nameFromEmail(email) : 'Priya Nair';
   const displayRole = email ? (role === 'teacher' ? 'Institution admin' : 'Student') : 'Institution admin';
 
   return (
-    <div className="app-shell" data-theme="dark">
+    <div className="console app-shell" data-theme={theme}>
       <aside className="sidebar" aria-label="Main Navigation">
         <div className="sidebar-brand">
           <Link href="/admin/dashboard">
@@ -140,6 +185,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="sidebar-footer">
+          <ThemeSwitch theme={theme} onChange={applyTheme} />
           <div className="sidebar-footer-user">{displayName}</div>
           <div className="sidebar-footer-role">{displayRole}</div>
           {email ? (

@@ -85,28 +85,28 @@ export default function AuditLogPage() {
             >
               <div>
                 <span style={{ color: 'var(--ink-secondary)' }}>Event ID: </span>
-                <span style={{ color: '#ffffff' }}>{inspectEvent.id}</span>
+                <span style={{ color: 'var(--ink-primary)' }}>{inspectEvent.id}</span>
               </div>
               <div>
                 <span style={{ color: 'var(--ink-secondary)' }}>Action: </span>
-                <span style={{ color: '#ffffff' }}>{inspectEvent.action}</span>
+                <span style={{ color: 'var(--ink-primary)' }}>{inspectEvent.action}</span>
               </div>
               <div>
                 <span style={{ color: 'var(--ink-secondary)' }}>Status: </span>
-                <span style={{ color: '#ffffff' }}>{inspectEvent.status}</span>
+                <span style={{ color: 'var(--ink-primary)' }}>{inspectEvent.status}</span>
               </div>
               <div>
                 <span style={{ color: 'var(--ink-secondary)' }}>Actor: </span>
-                <span style={{ color: '#ffffff' }}>{inspectEvent.actor}</span>
+                <span style={{ color: 'var(--ink-primary)' }}>{inspectEvent.actor}</span>
               </div>
               <div>
                 <span style={{ color: 'var(--ink-secondary)' }}>Timestamp: </span>
-                <span style={{ color: '#ffffff' }}>{inspectEvent.timestamp}</span>
+                <span style={{ color: 'var(--ink-primary)' }}>{inspectEvent.timestamp}</span>
               </div>
               {inspectEvent.resource && (
                 <div>
                   <span style={{ color: 'var(--ink-secondary)' }}>Resource Target: </span>
-                  <span style={{ color: '#ffffff' }}>{inspectEvent.resource}</span>
+                  <span style={{ color: 'var(--ink-primary)' }}>{inspectEvent.resource}</span>
                 </div>
               )}
             </div>

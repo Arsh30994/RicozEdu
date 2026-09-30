@@ -1,17 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  dataConnector,
-  StudentMembership,
-  AppState,
-} from '../../../lib/data-connector';
+import { dataConnector, AppState } from '../../../lib/data-connector';
 
 export default function StudentsPage() {
   const [state, setState] = useState<AppState>(dataConnector.getState());
   const [selectedStudentId, setSelectedStudentId] = useState<string>('stu-1');
   const [showConvertModal, setShowConvertModal] = useState(false);
-  const [showStatusModal, setShowStatusModal] = useState(false);
 
   // Convert Form state
   const [selectedPersonId, setSelectedPersonId] = useState('');
@@ -20,10 +15,6 @@ export default function StudentsPage() {
   const [studentDept, setStudentDept] = useState('Computer Science & Engg.');
   const [studentCampus, setStudentCampus] = useState('Main');
   const [studentNoInput, setStudentNoInput] = useState('');
-
-  // Status Change state
-  const [newStatus, setNewStatus] = useState<StudentMembership['status']>('Active');
-  const [statusReason, setStatusReason] = useState('');
 
   useEffect(() => {
     const unsub = dataConnector.subscribe(() => {
@@ -62,14 +53,6 @@ export default function StudentsPage() {
       setStudentName(person.name);
       setStudentEmail(person.email);
     }
-  }
-
-  function handleStatusSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedStudent) return;
-    dataConnector.changeStudentStatus(selectedStudent.id, newStatus, statusReason);
-    setStatusReason('');
-    setShowStatusModal(false);
   }
 
   return (
@@ -117,7 +100,7 @@ export default function StudentsPage() {
                     style={{ cursor: 'pointer' }}
                     onClick={() => setSelectedStudentId(student.id)}
                   >
-                    <td style={{ color: '#ffffff', fontWeight: 500 }}>{student.studentNo}</td>
+                    <td style={{ color: 'var(--ink-primary)', fontWeight: 500 }}>{student.studentNo}</td>
                     <td>{student.name}</td>
                     <td>
                       <span className={`pill-badge ${badgeClass}`}>{student.status}</span>
@@ -138,19 +121,9 @@ export default function StudentsPage() {
             <h2 className="card-title">
               Status history — {selectedStudent.name} ({selectedStudent.studentNo})
             </h2>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => {
-                setNewStatus(selectedStudent.status);
-                setShowStatusModal(true);
-              }}
-            >
-              Update Status
-            </button>
           </div>
 
-          <div className="timeline-list">
+          <div className="timeline-list history">
             {selectedStudent.history.map((item) => (
               <div key={item.id} className="timeline-item">
                 <div className="bullet-dot" />
@@ -271,56 +244,6 @@ export default function StudentsPage() {
         </div>
       )}
 
-      {/* Modal: Update Student Status */}
-      {showStatusModal && selectedStudent && (
-        <div className="modal-backdrop" onClick={() => setShowStatusModal(false)}>
-          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
-            <h2>Update Status — {selectedStudent.name}</h2>
-            <p>Modify lifecycle state for student {selectedStudent.studentNo}.</p>
-
-            <form onSubmit={handleStatusSubmit}>
-              <div className="form-group">
-                <label htmlFor="new-stat">Target Status</label>
-                <select
-                  id="new-stat"
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value as StudentMembership['status'])}
-                >
-                  <option value="Active">Active</option>
-                  <option value="Invited">Invited</option>
-                  <option value="Suspended">Suspended</option>
-                  <option value="Withdrawn">Withdrawn</option>
-                  <option value="Graduated">Graduated</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="status-reason">Reason / Note (Optional)</label>
-                <textarea
-                  id="status-reason"
-                  rows={3}
-                  placeholder="Provide context for audit records..."
-                  value={statusReason}
-                  onChange={(e) => setStatusReason(e.target.value)}
-                />
-              </div>
-
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowStatusModal(false)}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary">
-                  Apply Status Change
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

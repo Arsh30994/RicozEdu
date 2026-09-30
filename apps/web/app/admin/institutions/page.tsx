@@ -130,7 +130,7 @@ export default function InstitutionsPage() {
             <tbody>
               {state.institutions.map((inst) => (
                 <tr key={inst.id}>
-                  <td style={{ fontWeight: 500, color: '#ffffff' }}>{inst.name}</td>
+                  <td style={{ fontWeight: 500, color: 'var(--ink-primary)' }}>{inst.name}</td>
                   <td>{inst.campusesCount}</td>
                   <td>{inst.departmentsCount}</td>
                   <td>
@@ -179,7 +179,7 @@ export default function InstitutionsPage() {
             <tbody>
               {state.departments.map((dept) => (
                 <tr key={dept.id}>
-                  <td style={{ color: '#ffffff', fontWeight: 400 }}>{dept.name}</td>
+                  <td style={{ color: 'var(--ink-primary)', fontWeight: 400 }}>{dept.name}</td>
                   <td>{dept.campus}</td>
                   <td>
                     {dept.admin === 'Unassigned' ? (
