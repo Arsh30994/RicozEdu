@@ -1,7 +1,7 @@
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ricoz_migrator') THEN
-    CREATE ROLE ricoz_migrator LOGIN PASSWORD 'ricoz_migrator_dev' NOSUPERUSER CREATEDB;
+    CREATE ROLE ricoz_migrator LOGIN PASSWORD 'ricoz_migrator_dev' NOSUPERUSER CREATEDB BYPASSRLS;
   END IF;
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ricoz_app') THEN
     CREATE ROLE ricoz_app LOGIN PASSWORD 'ricoz_app_dev' NOSUPERUSER NOBYPASSRLS;
