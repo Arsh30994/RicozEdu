@@ -62,6 +62,7 @@ export interface StudentMembership {
 export interface AuditActivity {
   id: string;
   action: string;
+  label: string;
   status: 'Success' | 'Blocked' | 'Failed' | 'Warning';
   timeAgo: string;
   timestamp: string;
@@ -320,6 +321,7 @@ const INITIAL_AUDIT: AuditActivity[] = [
   {
     id: 'aud-1',
     action: 'role.assign',
+    label: 'Role assigned — Faculty',
     status: 'Success',
     timeAgo: '10:42',
     timestamp: '2026-09-29T10:42:00+05:30',
@@ -329,6 +331,7 @@ const INITIAL_AUDIT: AuditActivity[] = [
   {
     id: 'aud-2',
     action: 'student.status_change',
+    label: 'Student status → Active',
     status: 'Success',
     timeAgo: '10:24',
     timestamp: '2026-09-29T10:24:00+05:30',
@@ -338,6 +341,7 @@ const INITIAL_AUDIT: AuditActivity[] = [
   {
     id: 'aud-3',
     action: 'tenant.read',
+    label: 'Cross-tenant read attempt',
     status: 'Blocked',
     result: 'Blocked — wrong tenant',
     timeAgo: '09:31',
@@ -348,6 +352,7 @@ const INITIAL_AUDIT: AuditActivity[] = [
   {
     id: 'aud-4',
     action: 'department.create',
+    label: 'Department created — CSE',
     status: 'Success',
     timeAgo: 'Yesterday',
     timestamp: '2026-09-28T14:30:00+05:30',
@@ -452,6 +457,12 @@ class DataConnectorService {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed.auditLogs)) {
+          parsed.auditLogs = parsed.auditLogs.map((entry: AuditActivity) => ({
+            ...entry,
+            label: entry.label || entry.action,
+          }));
+        }
         this.state = {
           ...this.state,
           ...parsed,
@@ -519,6 +530,7 @@ class DataConnectorService {
         const mapped = liveAudit.map((a) => ({
           id: a.id,
           action: a.action,
+          label: a.action,
           status: 'Success' as const,
           timeAgo: 'Recently',
           timestamp: a.created_at,
@@ -689,10 +701,16 @@ class DataConnectorService {
     this.save();
   }
 
-  public addAudit(action: string, status: AuditActivity['status'], actor: string = 'Priya Nair') {
+  public addAudit(
+    action: string,
+    status: AuditActivity['status'],
+    actor: string = 'Priya Nair',
+    label?: string,
+  ) {
     const item: AuditActivity = {
       id: `aud-${Date.now()}`,
       action,
+      label: label ?? action,
       status,
       timeAgo: 'Just now',
       timestamp: new Date().toISOString(),
@@ -741,7 +759,7 @@ class DataConnectorService {
           }
         : user,
     );
-    this.addAudit(`role.assign`, 'Success', 'Priya Nair');
+    this.addAudit('role.assign', 'Success', 'Priya Nair', `Role assigned — ${data.role}`);
     this.save();
   }
 

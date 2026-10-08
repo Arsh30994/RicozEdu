@@ -26,6 +26,8 @@ export default function StudentsPage() {
 
   const selectedStudent =
     state.students.find((s) => s.id === selectedStudentId) || state.students[0];
+  const listedDepartments = [...new Set(state.students.map((student) => student.department).filter(Boolean))];
+  const listDepartment = listedDepartments.length === 1 ? listedDepartments[0] : state.departments[0]?.name;
 
   function handleConvertSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -72,7 +74,7 @@ export default function StudentsPage() {
       {/* Students Table Card */}
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">Students — {selectedStudent?.department || state.departments[0]?.name || 'Students'}</h2>
+          <h2 className="card-title">Students — {listDepartment || 'Students'}</h2>
         </div>
 
         <div className="table-wrapper">

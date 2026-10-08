@@ -2,29 +2,8 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PageHeader, StatusPill, UserChip, displayRole, useConsoleUser } from '../../../components/console-ui';
-import { dataConnector, AppState, AuditActivity } from '../../../lib/data-connector';
-
-function activityLine(log: AuditActivity, state: AppState): string {
-  if (log.action === 'role.assign') {
-    const handle = log.resource?.replace(/^user:/, '');
-    const user = handle
-      ? state.userRoles.find((item) => item.email.split('@')[0] === handle)
-      : undefined;
-    return user ? `Role assigned — ${displayRole(user.role)}` : 'Role assigned';
-  }
-  if (log.action === 'student.status_change') {
-    const studentNo = log.resource?.replace(/^student:/, '');
-    const student = state.students.find((item) => item.studentNo === studentNo);
-    return student ? `Student status → ${student.status}` : 'Student status change';
-  }
-  if (log.action === 'tenant.read') return 'Cross-tenant read attempt';
-  if (log.action === 'department.create') {
-    const code = log.resource?.replace(/^dept:/, '');
-    return code ? `Department created — ${code.toUpperCase()}` : 'Department created';
-  }
-  return log.action;
-}
+import { PageHeader, UserChip, useConsoleUser } from '../../../components/console-ui';
+import { dataConnector, AppState } from '../../../lib/data-connector';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -42,7 +21,7 @@ export default function DashboardPage() {
   }, []);
 
   const totalCampuses = state.institutions.reduce((acc, i) => acc + i.campusesCount, 0);
-  const totalDepartments = state.institutions.reduce((acc, inst) => acc + inst.departmentsCount, 0);
+  const totalDepartments = state.departments.length;
   const institutionName = state.institutions[0]?.name ?? 'GTBIT Delhi';
   const totalStudentsFormatted = state.totalStudents.toLocaleString();
   const facultyCount = state.people.filter((person) => person.relation === 'Faculty').length;
@@ -142,8 +121,10 @@ export default function DashboardPage() {
           <ul className="audit-activity">
             {state.auditLogs.slice(0, 4).map((log) => (
               <li key={log.id}>
-                <span>{activityLine(log, state)}</span>
-                <StatusPill value={log.status} />
+                <span>{log.label}</span>
+                <span className={`audit-result ${log.status === 'Success' ? 'ok' : log.status === 'Blocked' || log.status === 'Failed' ? 'bad' : 'warn'}`}>
+                  {log.status}
+                </span>
               </li>
             ))}
           </ul>

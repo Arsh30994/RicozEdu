@@ -184,7 +184,7 @@ export default function InstitutionsPage() {
                   <td>
                     {dept.admin === 'Unassigned' ? (
                       <span
-                        style={{ cursor: 'pointer', textDecoration: 'underline', color: 'var(--ink-secondary)' }}
+                        className="unassigned"
                         onClick={() => setEditingDept({ ...dept })}
                         title="Click to assign admin"
                       >

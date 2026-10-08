@@ -120,7 +120,7 @@ export default function PeoplePage() {
                   <tr key={dup.id}>
                     <td style={{ color: 'var(--ink-primary)', fontWeight: 400 }}>{dup.name}</td>
                     <td>{dup.email}</td>
-                    <td style={{ color: 'var(--ink-secondary)' }}>{dup.matchReason}</td>
+                    <td>{dup.matchReason}</td>
                     <td style={{ textAlign: 'right' }}>
                       <button
                         type="button"
