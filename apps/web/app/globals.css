@@ -37,6 +37,18 @@
   --badge-neutral-bg: #292c34;
   --badge-neutral-ink: #aeb4c0;
 
+  --institution-badge-bg: #3a331c;
+  --institution-badge-ink: #e4c877;
+  --institution-badge-border: #5a4c28;
+  --role-students-bg: #1c2742;
+  --role-students-ink: #9eb4f6;
+  --role-faculty-bg: #2a2236;
+  --role-faculty-ink: #c9a6ea;
+  --role-admins-bg: #17302d;
+  --role-admins-ink: #7dcec4;
+  --role-review-bg: #3a2024;
+  --role-review-ink: #e24b52;
+
   --dot-green: #22a968;
   
   --radius-lg: 14px;
@@ -144,6 +156,17 @@ h3 {
   --btn-secondary-ink: #292d35;
   --btn-secondary-border: #d9dce2;
   --btn-secondary-hover: #f1f2f5;
+  --institution-badge-bg: var(--badge-warning-bg);
+  --institution-badge-ink: var(--badge-warning-ink);
+  --institution-badge-border: color-mix(in srgb, var(--badge-warning-ink) 28%, var(--badge-warning-bg));
+  --role-students-bg: #eaf0fe;
+  --role-students-ink: #3355d8;
+  --role-faculty-bg: #f3e9fe;
+  --role-faculty-ink: #7a3ec8;
+  --role-admins-bg: #e5f6f3;
+  --role-admins-ink: #0e8f80;
+  --role-review-bg: var(--badge-danger-bg);
+  --role-review-ink: var(--badge-danger-ink);
   background: var(--bg-canvas);
 }
 
@@ -389,14 +412,6 @@ h3 {
 .console[data-theme="light"] .sidebar-auth-action { border-color: #d8dbe1; background: #fff; color: #343842; }
 .console[data-theme="light"] .sidebar-auth-action:hover { background: #e8eaf0; }
 
-.theme-switch-anchor {
-  position: fixed;
-  top: 1.15rem;
-  right: 1.15rem;
-  z-index: 30;
-  width: 168px;
-}
-
 .theme-switch {
   position: relative;
   display: grid;
@@ -407,12 +422,6 @@ h3 {
   border-radius: 999px;
   background: var(--surface-muted);
   border: 1px solid var(--sidebar-line);
-}
-
-.theme-switch-anchor .theme-switch {
-  margin-bottom: 0;
-  background: var(--surface-card);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
 }
 
 .theme-switch-knob {
@@ -523,9 +532,9 @@ h3 {
   align-items: center;
   padding: 0.38rem 0.85rem;
   border-radius: var(--radius-pill);
-  background: #3a331c;
-  color: #e4c877;
-  border: 1px solid #5a4c28;
+  background: var(--institution-badge-bg);
+  color: var(--institution-badge-ink);
+  border: 1px solid var(--institution-badge-border);
   font-size: 0.82rem;
   font-weight: 650;
   white-space: nowrap;
@@ -801,11 +810,11 @@ button.secondary:hover,
 .role-tile { transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 360ms cubic-bezier(0.22, 1, 0.36, 1), filter 360ms cubic-bezier(0.22, 1, 0.36, 1); }
 .role-tile:hover { transform: translateY(-3px); box-shadow: 0 9px 20px rgba(0, 0, 0, 0.2); filter: saturate(1.08); }
 .role-tile strong { font-size: 1.15rem; font-weight: 800; }
-.role-tile span { color: #697285; font-size: 0.72rem; }
-.role-tile.students { background: #eaf0fe; color: #3355d8; }
-.role-tile.faculty { background: #f3e9fe; color: #7a3ec8; }
-.role-tile.admins { background: #e5f6f3; color: #0e8f80; }
-.role-tile.review { background: #3a2024; color: #e24b52; }
+.role-tile span { color: var(--ink-muted); font-size: 0.72rem; }
+.role-tile.students { background: var(--role-students-bg); color: var(--role-students-ink); }
+.role-tile.faculty { background: var(--role-faculty-bg); color: var(--role-faculty-ink); }
+.role-tile.admins { background: var(--role-admins-bg); color: var(--role-admins-ink); }
+.role-tile.review { background: var(--role-review-bg); color: var(--role-review-ink); }
 .audit-activity {
   list-style: none;
   margin: 0;
@@ -1517,7 +1526,6 @@ select:focus {
   .sidebar-link { gap: 0.45rem; padding: 0.48rem 0.5rem; font-size: 0.82rem; }
   .sidebar-subnav { grid-column: 1 / -1; margin-top: 0.25rem; padding-top: 0.4rem; }
   .sidebar-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.65rem; margin-top: 0.65rem; padding-top: 0.6rem; }
-  .sidebar-footer .theme-switch { flex: 1 0 100%; margin-bottom: 0.45rem; }
   .sidebar-footer-label { width: 100%; }
   .sidebar-auth-action { width: auto; margin: 0 0 0 auto; padding: 0.35rem 0.65rem; }
   .page-container { --page-pad-x: 0.75rem; }
