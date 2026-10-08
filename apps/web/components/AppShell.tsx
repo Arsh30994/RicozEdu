@@ -4,13 +4,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import {
-  api,
-  clearSession,
-  loadPortalRole,
-  loadSession,
-  PortalRole,
-} from '../lib/api';
+import { api, clearSession, loadSession } from '../lib/api';
+import { notifySessionChange, useConsoleUser } from './console-ui';
 
 interface NavItem {
   href: string;
@@ -44,13 +39,6 @@ const SECONDARY_NAV_ITEMS: NavItem[] = [
 const THEME_KEY = 'ricozedu.consoleTheme';
 type ConsoleTheme = 'dark' | 'light';
 
-function nameFromEmail(email: string): string {
-  return email
-    .split('@')[0]
-    .replace(/[._-]/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
 function ThemeSwitch({
   theme,
   onChange,
@@ -74,16 +62,9 @@ function ThemeSwitch({
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [email, setEmail] = useState<string | null>(null);
-  const [role, setRole] = useState<PortalRole>('teacher');
+  const { email, name, roleLabel } = useConsoleUser();
   const [showTools, setShowTools] = useState(false);
   const [theme, setTheme] = useState<ConsoleTheme>('dark');
-
-  useEffect(() => {
-    const session = loadSession();
-    setEmail(session?.email ?? null);
-    setRole(session?.role ?? loadPortalRole());
-  }, [pathname]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(THEME_KEY);
@@ -106,7 +87,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   function handleSignOut() {
     const session = loadSession();
     clearSession();
-    setEmail(null);
+    notifySessionChange();
     router.push('/login');
     if (session?.refreshToken) {
       void api<void>('/v1/auth/logout', {
@@ -129,9 +110,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
     );
   }
-
-  const displayName = email ? nameFromEmail(email) : 'Priya Nair';
-  const displayRole = email ? (role === 'teacher' ? 'Institution admin' : 'Student') : 'Institution admin';
 
   return (
     <div className="console app-shell" data-theme={theme}>
@@ -186,8 +164,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="sidebar-footer">
           <ThemeSwitch theme={theme} onChange={applyTheme} />
-          <div className="sidebar-footer-user">{displayName}</div>
-          <div className="sidebar-footer-role">{displayRole}</div>
+          <div className="sidebar-footer-user">{name}</div>
+          <div className="sidebar-footer-role">{roleLabel}</div>
           {email ? (
             <button className="sidebar-auth-action" type="button" onClick={handleSignOut}>
               Log out
