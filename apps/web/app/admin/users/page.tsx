@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { PageHeader, StatusPill, displayRole } from '../../../components/console-ui';
 import {
   dataConnector,
   UserRoleItem,
@@ -65,12 +66,11 @@ export default function UsersRolesPage() {
   return (
     <section>
       {/* Top Header */}
-      <div className="view-header">
-        <h1>Users & roles</h1>
+      <PageHeader title="Users & roles">
         <button type="button" className="btn-primary" onClick={openInvite}>
           + Invite user
         </button>
-      </div>
+      </PageHeader>
 
       <div className="card">
         <div className="table-wrapper">
@@ -88,12 +88,10 @@ export default function UsersRolesPage() {
               {state.userRoles.map((u) => (
                 <tr key={u.id}>
                   <td style={{ fontWeight: 500 }}>{u.name}</td>
-                  <td>{u.role}</td>
+                  <td>{displayRole(u.role)}</td>
                   <td>{u.scope || u.department || 'GTBIT Delhi'}</td>
                   <td>
-                    <span className={`pill-badge ${u.status === 'Active' ? 'active' : 'neutral'}`}>
-                      {u.status === 'Disabled' ? 'Inactive' : u.status}
-                    </span>
+                    <StatusPill value={u.status === 'Disabled' ? 'Inactive' : u.status} />
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     {u.status === 'Active' ? (

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { PageHeader, StatusPill } from '../../../components/console-ui';
 import {
   dataConnector,
   Institution,
@@ -99,8 +100,7 @@ export default function InstitutionsPage() {
   return (
     <section>
       {/* Top Header */}
-      <div className="view-header">
-        <h1>Institutions & structure</h1>
+      <PageHeader title="Institutions & structure">
         <button
           type="button"
           className="btn-primary"
@@ -108,7 +108,7 @@ export default function InstitutionsPage() {
         >
           + New institution
         </button>
-      </div>
+      </PageHeader>
 
       {/* Institutions Card */}
       <div className="card">
@@ -134,7 +134,7 @@ export default function InstitutionsPage() {
                   <td>{inst.campusesCount}</td>
                   <td>{inst.departmentsCount}</td>
                   <td>
-                    <span className="pill-badge active">{inst.status}</span>
+                    <StatusPill value={inst.status} />
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <button
@@ -184,7 +184,7 @@ export default function InstitutionsPage() {
                   <td>
                     {dept.admin === 'Unassigned' ? (
                       <span
-                        style={{ cursor: 'pointer', textDecoration: 'underline', color: 'var(--ink-secondary)' }}
+                        className="unassigned"
                         onClick={() => setEditingDept({ ...dept })}
                         title="Click to assign admin"
                       >

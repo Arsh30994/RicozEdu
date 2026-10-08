@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { PageHeader, StatusPill } from '../../../components/console-ui';
 import {
   dataConnector,
   AuditActivity,
@@ -20,10 +21,9 @@ export default function AuditLogPage() {
 
   return (
     <section>
-      <div className="view-header">
-        <h1>Audit log</h1>
-        <span className="pill-badge readonly">Read-only</span>
-      </div>
+      <PageHeader title="Audit log">
+        <StatusPill tone="readonly" label="Read-only" />
+      </PageHeader>
 
       <div className="card">
         <div className="table-wrapper">
@@ -38,12 +38,7 @@ export default function AuditLogPage() {
               </tr>
             </thead>
             <tbody>
-              {state.auditLogs.map((log) => {
-                let badgeClass = 'success';
-                if (log.status === 'Blocked' || log.status === 'Failed') badgeClass = 'blocked';
-                else if (log.status === 'Warning') badgeClass = 'warning';
-
-                return (
+              {state.auditLogs.map((log) => (
                   <tr
                     key={log.id}
                     style={{ cursor: 'pointer' }}
@@ -55,11 +50,10 @@ export default function AuditLogPage() {
                     <td>{log.action}</td>
                     <td>{log.resource}</td>
                     <td>
-                      <span className={`pill-badge ${badgeClass}`}>{log.result ?? log.status}</span>
+                      <StatusPill value={log.status} label={log.result ?? log.status} />
                     </td>
                   </tr>
-                );
-              })}
+              ))}
             </tbody>
           </table>
         </div>

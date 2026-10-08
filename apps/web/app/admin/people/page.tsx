@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { PageHeader, StatusPill } from '../../../components/console-ui';
 import {
   dataConnector,
   Person,
@@ -24,6 +25,8 @@ export default function PeoplePage() {
     const unsub = dataConnector.subscribe(() => {
       setState({ ...dataConnector.getState() });
     });
+    const query = new URLSearchParams(window.location.search).get('q');
+    if (query) setSearchQuery(query);
     return () => unsub();
   }, []);
 
@@ -70,8 +73,7 @@ export default function PeoplePage() {
   return (
     <section>
       {/* Top Header */}
-      <div className="view-header">
-        <h1>People</h1>
+      <PageHeader title="People">
         <button
           type="button"
           className="btn-primary"
@@ -79,7 +81,7 @@ export default function PeoplePage() {
         >
           + Add person
         </button>
-      </div>
+      </PageHeader>
 
       {/* Search Bar */}
       <div className="search-container">
@@ -100,9 +102,7 @@ export default function PeoplePage() {
         <div className="card">
           <div className="card-header">
             <h2 className="card-title">Possible duplicate</h2>
-            <span className="pill-badge flagged">
-              {flaggedDuplicates.length} flagged
-            </span>
+            <StatusPill tone="flagged" label={`${flaggedDuplicates.length} flagged`} />
           </div>
 
           <div className="table-wrapper">
@@ -120,7 +120,7 @@ export default function PeoplePage() {
                   <tr key={dup.id}>
                     <td style={{ color: 'var(--ink-primary)', fontWeight: 400 }}>{dup.name}</td>
                     <td>{dup.email}</td>
-                    <td style={{ color: 'var(--ink-secondary)' }}>{dup.matchReason}</td>
+                    <td>{dup.matchReason}</td>
                     <td style={{ textAlign: 'right' }}>
                       <button
                         type="button"

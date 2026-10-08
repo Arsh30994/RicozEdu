@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react';
-import { Source_Serif_4, Source_Sans_3 } from 'next/font/google';
+import { Poppins, Source_Sans_3 } from 'next/font/google';
 import { AppShell } from '../components/AppShell';
 import './franchise.css';
 import './globals.css';
 
-const display = Source_Serif_4({
+const display = Poppins({
   subsets: ['latin'],
-  variable: '--font-literata',
+  weight: ['500', '600', '700'],
+  variable: '--font-poppins',
   display: 'swap',
 });
 

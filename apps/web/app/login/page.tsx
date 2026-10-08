@@ -55,7 +55,7 @@ export default function LoginPage() {
     <section className="console-login">
       <form className="console-login-card" onSubmit={onSubmit} aria-describedby={error ? 'login-error' : undefined}>
         <h1>
-          Login to the <span>RicozEdu</span> Console
+          Login to the <span>RicozEdu Console</span>
         </h1>
         <label htmlFor="email">Email Address</label>
         <input

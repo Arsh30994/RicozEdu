@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { PageHeader, StatusPill } from '../../../components/console-ui';
 import { dataConnector, AppState } from '../../../lib/data-connector';
 
 export default function StudentsPage() {
@@ -25,6 +26,8 @@ export default function StudentsPage() {
 
   const selectedStudent =
     state.students.find((s) => s.id === selectedStudentId) || state.students[0];
+  const listedDepartments = [...new Set(state.students.map((student) => student.department).filter(Boolean))];
+  const listDepartment = listedDepartments.length === 1 ? listedDepartments[0] : state.departments[0]?.name;
 
   function handleConvertSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,8 +61,7 @@ export default function StudentsPage() {
   return (
     <section>
       {/* Top Header */}
-      <div className="view-header">
-        <h1>Student memberships</h1>
+      <PageHeader title="Student memberships">
         <button
           type="button"
           className="btn-primary"
@@ -67,12 +69,12 @@ export default function StudentsPage() {
         >
           + Convert person to student
         </button>
-      </div>
+      </PageHeader>
 
       {/* Students Table Card */}
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">Students — Computer Science & Engg.</h2>
+          <h2 className="card-title">Students — {listDepartment || 'Students'}</h2>
         </div>
 
         <div className="table-wrapper">
@@ -88,11 +90,6 @@ export default function StudentsPage() {
             <tbody>
               {state.students.map((student) => {
                 const isSelected = student.id === selectedStudent?.id;
-                let badgeClass = 'active';
-                if (student.status === 'Invited') badgeClass = 'invited';
-                else if (student.status === 'Suspended') badgeClass = 'suspended';
-                else if (student.status === 'Withdrawn') badgeClass = 'neutral';
-
                 return (
                   <tr
                     key={student.id}
@@ -103,7 +100,7 @@ export default function StudentsPage() {
                     <td style={{ color: 'var(--ink-primary)', fontWeight: 500 }}>{student.studentNo}</td>
                     <td>{student.name}</td>
                     <td>
-                      <span className={`pill-badge ${badgeClass}`}>{student.status}</span>
+                      <StatusPill value={student.status} />
                     </td>
                     <td>{student.campus}</td>
                   </tr>

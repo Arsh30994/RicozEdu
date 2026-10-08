@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { PageHeader, UserChip, useConsoleUser } from '../../../components/console-ui';
 import { dataConnector, AppState } from '../../../lib/data-connector';
 
 export default function DashboardPage() {
@@ -10,6 +10,8 @@ export default function DashboardPage() {
   const [state, setState] = useState<AppState>(dataConnector.getState());
   const [showTimezoneModal, setShowTimezoneModal] = useState(false);
   const [timezone, setTimezone] = useState('Asia/Kolkata (IST, UTC+05:30)');
+  const [search, setSearch] = useState('');
+  const user = useConsoleUser();
 
   useEffect(() => {
     const unsub = dataConnector.subscribe(() => {
@@ -20,6 +22,7 @@ export default function DashboardPage() {
 
   const totalCampuses = state.institutions.reduce((acc, i) => acc + i.campusesCount, 0);
   const totalDepartments = state.departments.length;
+  const institutionName = state.institutions[0]?.name ?? 'GTBIT Delhi';
   const totalStudentsFormatted = state.totalStudents.toLocaleString();
   const facultyCount = state.people.filter((person) => person.relation === 'Faculty').length;
   const adminCount = state.userRoles.filter((user) => user.role.toLocaleLowerCase().includes('admin')).length;
@@ -40,6 +43,13 @@ export default function DashboardPage() {
     }
   }
 
+  function handleSearch(event: FormEvent) {
+    event.preventDefault();
+    const query = search.trim();
+    if (!query) return;
+    router.push(`/admin/people?q=${encodeURIComponent(query)}`);
+  }
+
   function handleConfirmTimezone() {
     dataConnector.completePendingSetup('set-3');
     dataConnector.addAudit(`Campus timezone confirmed: ${timezone}`, 'Success', 'Priya Nair');
@@ -48,9 +58,19 @@ export default function DashboardPage() {
 
   return (
     <section className="dashboard-page">
-      <div className="view-header">
-        <h1>Dashboard</h1>
-      </div>
+      <PageHeader title="Dashboard">
+        <span className="institution-badge">{institutionName}</span>
+        <form className="topbar-search" onSubmit={handleSearch}>
+          <input
+            type="search"
+            aria-label="Search"
+            placeholder="Search..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </form>
+        <UserChip name={user.name} role={user.roleLabel} initials={user.initials} />
+      </PageHeader>
 
       <div className="metrics-grid">
         <article className="metric-card">
@@ -97,25 +117,17 @@ export default function DashboardPage() {
         <section className="card audit-card">
           <div className="card-header">
             <h2 className="card-title">Recent audit activity</h2>
-            <span className="pill-badge live">Live</span>
           </div>
-          <div className="table-wrapper">
-            <table className="custom-table">
-              <tbody>
-                {state.auditLogs.slice(0, 5).map((log) => (
-                  <tr key={log.id}>
-                    <td style={{ width: '55%', fontWeight: 400 }}>{log.action}</td>
-                    <td style={{ width: '25%' }}>
-                      <span className={`pill-badge ${log.status === 'Success' ? 'success' : log.status === 'Blocked' || log.status === 'Failed' ? 'blocked' : 'warning'}`}>
-                        {log.status}
-                      </span>
-                    </td>
-                    <td style={{ width: '20%', textAlign: 'right', color: 'var(--ink-secondary)' }}>{log.timeAgo}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ul className="audit-activity">
+            {state.auditLogs.slice(0, 4).map((log) => (
+              <li key={log.id}>
+                <span>{log.label}</span>
+                <span className={`audit-result ${log.status === 'Success' ? 'ok' : log.status === 'Blocked' || log.status === 'Failed' ? 'bad' : 'warn'}`}>
+                  {log.status}
+                </span>
+              </li>
+            ))}
+          </ul>
         </section>
       </div>
 
@@ -125,7 +137,7 @@ export default function DashboardPage() {
           <h2 className="card-title">Pending setup</h2>
         </div>
 
-        <div className="timeline-list">
+        <div className="timeline-list setup">
           {state.pendingSetups.map((setup) => (
             <div
               key={setup.id}

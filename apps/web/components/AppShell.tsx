@@ -4,13 +4,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import {
-  api,
-  clearSession,
-  loadPortalRole,
-  loadSession,
-  PortalRole,
-} from '../lib/api';
+import { api, clearSession, loadSession } from '../lib/api';
+import { notifySessionChange, SettingsMenu, ThemeProvider, useConsoleUser, type ConsoleTheme } from './console-ui';
 
 interface NavItem {
   href: string;
@@ -42,52 +37,21 @@ const SECONDARY_NAV_ITEMS: NavItem[] = [
 ];
 
 const THEME_KEY = 'ricozedu.consoleTheme';
-type ConsoleTheme = 'dark' | 'light';
-
-function nameFromEmail(email: string): string {
-  return email
-    .split('@')[0]
-    .replace(/[._-]/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function ThemeSwitch({
-  theme,
-  onChange,
-}: {
-  theme: ConsoleTheme;
-  onChange: (next: ConsoleTheme) => void;
-}) {
-  return (
-    <div className="theme-switch" data-active={theme} role="group" aria-label="Color theme">
-      <span className="theme-switch-knob" aria-hidden />
-      <button type="button" aria-pressed={theme === 'light'} onClick={() => onChange('light')}>
-        Light
-      </button>
-      <button type="button" aria-pressed={theme === 'dark'} onClick={() => onChange('dark')}>
-        Dark
-      </button>
-    </div>
-  );
-}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [email, setEmail] = useState<string | null>(null);
-  const [role, setRole] = useState<PortalRole>('teacher');
+  const { email, name, roleLabel } = useConsoleUser();
   const [showTools, setShowTools] = useState(false);
   const [theme, setTheme] = useState<ConsoleTheme>('dark');
 
   useEffect(() => {
-    const session = loadSession();
-    setEmail(session?.email ?? null);
-    setRole(session?.role ?? loadPortalRole());
-  }, [pathname]);
-
-  useEffect(() => {
     const saved = window.localStorage.getItem(THEME_KEY);
-    if (saved === 'light' || saved === 'dark') setTheme(saved);
+    if (saved === 'light' || saved === 'dark') {
+      setTheme(saved);
+      return;
+    }
+    if (window.matchMedia('(prefers-color-scheme: light)').matches) setTheme('light');
   }, []);
 
   function applyTheme(next: ConsoleTheme) {
@@ -106,7 +70,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   function handleSignOut() {
     const session = loadSession();
     clearSession();
-    setEmail(null);
+    notifySessionChange();
     router.push('/login');
     if (session?.refreshToken) {
       void api<void>('/v1/auth/logout', {
@@ -121,19 +85,19 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (pathname === '/login') {
     return (
-      <div className="console console-root" data-theme={theme}>
-        <div className="theme-switch-anchor">
-          <ThemeSwitch theme={theme} onChange={applyTheme} />
+      <ThemeProvider theme={theme} setTheme={applyTheme}>
+        <div className="console console-root" data-theme={theme}>
+          <div className="settings-anchor">
+            <SettingsMenu />
+          </div>
+          {children}
         </div>
-        {children}
-      </div>
+      </ThemeProvider>
     );
   }
 
-  const displayName = email ? nameFromEmail(email) : 'Priya Nair';
-  const displayRole = email ? (role === 'teacher' ? 'Institution admin' : 'Student') : 'Institution admin';
-
   return (
+    <ThemeProvider theme={theme} setTheme={applyTheme}>
     <div className="console app-shell" data-theme={theme}>
       <aside className="sidebar" aria-label="Main Navigation">
         <div className="sidebar-brand">
@@ -168,7 +132,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
 
           <div className="sidebar-subnav">
-            <button className="sidebar-subnav-toggle" type="button" aria-expanded={showTools} onClick={() => setShowTools(!showTools)}>
+            <button className="sidebar-subnav-toggle" type="button" aria-expanded={showTools} data-tooltip="More tools" onClick={() => setShowTools(!showTools)}>
               <span>More tools</span>
               <span>{showTools ? '▲' : '▼'}</span>
             </button>
@@ -185,9 +149,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="sidebar-footer">
-          <ThemeSwitch theme={theme} onChange={applyTheme} />
-          <div className="sidebar-footer-user">{displayName}</div>
-          <div className="sidebar-footer-role">{displayRole}</div>
+          <div className="sidebar-footer-user">{name}</div>
+          <div className="sidebar-footer-role">{roleLabel}</div>
           {email ? (
             <button className="sidebar-auth-action" type="button" onClick={handleSignOut}>
               Log out
@@ -197,8 +160,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="main-wrapper">
+        <div className="settings-anchor">
+          <SettingsMenu />
+        </div>
         <div className="page-container">{children}</div>
       </div>
     </div>
+    </ThemeProvider>
   );
 }
