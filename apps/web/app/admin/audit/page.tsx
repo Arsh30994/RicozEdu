@@ -22,7 +22,7 @@ export default function AuditLogPage() {
   return (
     <section>
       <PageHeader title="Audit log">
-        <StatusPill tone="readonly" label="Read-only" />
+        <StatusPill tone="readonly" label="Read only" />
       </PageHeader>
 
       <div className="card">

@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { Poppins, Source_Sans_3 } from 'next/font/google';
 import { AppShell } from '../components/AppShell';
-import './franchise.css';
 import './globals.css';
 
 const display = Poppins({
@@ -18,8 +17,8 @@ const body = Source_Sans_3({
 });
 
 export const metadata = {
-  title: 'Ricoz | Franchise Ecosystem',
-  description: 'Build and grow your business with the Ricoz franchise ecosystem.',
+  title: 'RicozEdu Console',
+  description: 'Institution administration console for RicozEdu.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

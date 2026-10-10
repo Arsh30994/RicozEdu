@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { api, clearSession, loadSession } from '../lib/api';
-import { notifySessionChange, SettingsMenu, ThemeProvider, useConsoleUser, type ConsoleTheme } from './console-ui';
+import { notifySessionChange, ThemeProvider, ThemeSwitch, useConsoleUser, type ConsoleTheme } from './console-ui';
 
 interface NavItem {
   href: string;
@@ -29,29 +29,17 @@ const NAV_SECTIONS: NavSection[] = [
   { label: 'Compliance', items: [{ href: '/admin/audit', label: 'Audit log', matchPrefixes: ['/admin/audit', '/audit'] }] },
 ];
 
-const SECONDARY_NAV_ITEMS: NavItem[] = [
-  { href: '/admin/curriculum', label: 'Curriculum' },
-  { href: '/admin/rules', label: 'Rules Engine' },
-  { href: '/student/progress', label: 'Degree Progress' },
-  { href: '/sessions/welcome', label: 'Sessions (1-6)' },
-];
-
 const THEME_KEY = 'ricozedu.consoleTheme';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { email, name, roleLabel } = useConsoleUser();
-  const [showTools, setShowTools] = useState(false);
   const [theme, setTheme] = useState<ConsoleTheme>('dark');
 
   useEffect(() => {
     const saved = window.localStorage.getItem(THEME_KEY);
-    if (saved === 'light' || saved === 'dark') {
-      setTheme(saved);
-      return;
-    }
-    if (window.matchMedia('(prefers-color-scheme: light)').matches) setTheme('light');
+    if (saved === 'light' || saved === 'dark') setTheme(saved);
   }, []);
 
   function applyTheme(next: ConsoleTheme) {
@@ -81,16 +69,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   }
 
-  if (pathname === '/') return <>{children}</>;
-
-  if (pathname === '/login') {
+  if (pathname === '/' || pathname === '/login') {
     return (
       <ThemeProvider theme={theme} setTheme={applyTheme}>
         <div className="console console-root" data-theme={theme}>
-          <div className="settings-anchor">
-            <SettingsMenu />
-          </div>
           {children}
+          <div className="theme-corner">
+            <ThemeSwitch theme={theme} onChange={applyTheme} />
+          </div>
         </div>
       </ThemeProvider>
     );
@@ -130,22 +116,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               })}
             </div>
           ))}
-
-          <div className="sidebar-subnav">
-            <button className="sidebar-subnav-toggle" type="button" aria-expanded={showTools} data-tooltip="More tools" onClick={() => setShowTools(!showTools)}>
-              <span>More tools</span>
-              <span>{showTools ? '▲' : '▼'}</span>
-            </button>
-            {showTools &&
-              SECONDARY_NAV_ITEMS.map((item) => {
-                const active = pathname.startsWith(item.href);
-                return (
-                  <Link key={item.href} href={item.href} className={`sidebar-sublink ${active ? 'active' : ''}`}>
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-          </div>
         </nav>
 
         <div className="sidebar-footer">
@@ -156,13 +126,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               Log out
             </button>
           ) : null}
+          <div className="theme-corner">
+            <ThemeSwitch theme={theme} onChange={applyTheme} />
+          </div>
         </div>
       </aside>
 
       <div className="main-wrapper">
-        <div className="settings-anchor">
-          <SettingsMenu />
-        </div>
         <div className="page-container">{children}</div>
       </div>
     </div>

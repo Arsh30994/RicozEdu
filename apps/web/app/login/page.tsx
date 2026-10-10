@@ -9,7 +9,7 @@ const REMEMBER_KEY = 'ricozedu.rememberEmail';
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('priya.nair@gtbit.edu');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState('demo-access');
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,7 +74,7 @@ export default function LoginPage() {
           type="password"
           autoComplete="current-password"
           required
-          minLength={12}
+          minLength={8}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />

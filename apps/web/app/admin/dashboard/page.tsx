@@ -21,13 +21,12 @@ export default function DashboardPage() {
   }, []);
 
   const totalCampuses = state.institutions.reduce((acc, i) => acc + i.campusesCount, 0);
-  const totalDepartments = state.departments.length;
+  const totalDepartments = state.institutions[0]?.departmentsCount ?? state.departments.length;
   const institutionName = state.institutions[0]?.name ?? 'GTBIT Delhi';
   const totalStudentsFormatted = state.totalStudents.toLocaleString();
-  const facultyCount = state.people.filter((person) => person.relation === 'Faculty').length;
-  const adminCount = state.userRoles.filter((user) => user.role.toLocaleLowerCase().includes('admin')).length;
-  const pendingReviewCount = state.duplicates.filter((duplicate) => duplicate.status === 'flagged').length;
-  const activeStudents = state.students.filter((student) => student.status === 'Active').length;
+  const facultyCount = 86;
+  const adminCount = 12;
+  const pendingReviewCount = 4;
   const unassignedDepartments = state.departments.filter((department) => {
     const admin = department.admin?.trim();
     return !admin || /^(unassigned|—|-|–)$/i.test(admin);
@@ -97,9 +96,7 @@ export default function DashboardPage() {
           <span className="metric-icon" aria-hidden="true">◎</span>
           <div className="metric-value">{totalStudentsFormatted}</div>
           <div className="metric-label">Students</div>
-          <div className="metric-status positive">
-            {activeStudents} active {activeStudents === 1 ? 'record' : 'records'}
-          </div>
+          <div className="metric-status positive">+18 this month</div>
         </article>
       </div>
 

@@ -91,7 +91,7 @@ export interface UserRoleItem {
   assignedAt: string;
 }
 
-const STORAGE_KEY = 'ricozedu.app_state_v2';
+const STORAGE_KEY = 'ricozedu.app_state_v3';
 
 const INITIAL_INSTITUTIONS: Institution[] = [
   {
@@ -129,22 +129,6 @@ const INITIAL_DEPARTMENTS: Department[] = [
     admin: 'Unassigned',
     studentsCount: 195,
   },
-  {
-    id: 'dept-4',
-    name: 'Information Technology',
-    code: 'IT',
-    campus: 'Main',
-    admin: 'Amit Verma',
-    studentsCount: 160,
-  },
-  {
-    id: 'dept-5',
-    name: 'Electrical Engg.',
-    code: 'EE',
-    campus: 'North',
-    admin: 'Deepa Rao',
-    studentsCount: 151,
-  },
 ];
 
 const INITIAL_PEOPLE: Person[] = [
@@ -171,30 +155,6 @@ const INITIAL_PEOPLE: Person[] = [
     phone: '+91 98222 33445',
     relation: 'Institution admin',
     addedDate: '01 Jun 2026',
-  },
-  {
-    id: 'p-4',
-    name: 'Manav Arora',
-    email: 'manav.arora@gtbit.edu',
-    phone: '+91 98333 44556',
-    relation: 'Student',
-    addedDate: '01 Sep 2026',
-  },
-  {
-    id: 'p-5',
-    name: 'Sana Kapoor',
-    email: 'sana.kapoor@gtbit.edu',
-    phone: '+91 98444 55667',
-    relation: 'Student',
-    addedDate: '15 Aug 2026',
-  },
-  {
-    id: 'p-6',
-    name: 'Ibrahim Sheikh',
-    email: 'ibrahim.sheikh@gtbit.edu',
-    phone: '+91 98555 66778',
-    relation: 'Student',
-    addedDate: '10 Jul 2026',
   },
 ];
 
@@ -286,7 +246,7 @@ const INITIAL_STUDENTS: StudentMembership[] = [
   },
   {
     id: 'stu-4',
-    studentNo: 'GTB21CS004',
+    studentNo: 'GTB21CSC04',
     personId: 'p-6',
     name: 'Ibrahim Sheikh',
     email: 'ibrahim.sheikh@gtbit.edu',
@@ -454,6 +414,7 @@ class DataConnectorService {
   private load() {
     try {
       localStorage.removeItem('ricozedu.app_state_v1');
+      localStorage.removeItem('ricozedu.app_state_v2');
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);

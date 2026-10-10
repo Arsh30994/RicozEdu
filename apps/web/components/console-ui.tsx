@@ -23,7 +23,7 @@ export function ThemeProvider({
   return <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>;
 }
 
-function ThemeSwitch({
+export function ThemeSwitch({
   theme,
   onChange,
 }: {

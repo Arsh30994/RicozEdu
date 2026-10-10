@@ -40,14 +40,14 @@
   --institution-badge-bg: #3a331c;
   --institution-badge-ink: #e4c877;
   --institution-badge-border: #5a4c28;
-  --role-students-bg: #1c2742;
-  --role-students-ink: #9eb4f6;
-  --role-faculty-bg: #2a2236;
-  --role-faculty-ink: #c9a6ea;
-  --role-admins-bg: #17302d;
-  --role-admins-ink: #7dcec4;
-  --role-review-bg: #3a2024;
-  --role-review-ink: #e24b52;
+  --role-students-bg: #eef2fb;
+  --role-students-ink: #3d5bd9;
+  --role-faculty-bg: #f4eaf8;
+  --role-faculty-ink: #8b5cf6;
+  --role-admins-bg: #e6f6f3;
+  --role-admins-ink: #1c8f86;
+  --role-review-bg: #3d2228;
+  --role-review-ink: #ef4450;
 
   --dot-green: #22a968;
   
@@ -412,12 +412,25 @@ h3 {
 .console[data-theme="light"] .sidebar-auth-action { border-color: #d8dbe1; background: #fff; color: #343842; }
 .console[data-theme="light"] .sidebar-auth-action:hover { background: #e8eaf0; }
 
+.theme-corner {
+  margin-top: 0.85rem;
+}
+
+.console-root .theme-corner {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 40;
+  width: 168px;
+  margin-top: 0;
+}
+
 .theme-switch {
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
   width: 100%;
-  margin-bottom: 0.9rem;
+  margin-bottom: 0;
   padding: 3px;
   border-radius: 999px;
   background: var(--surface-muted);
@@ -488,8 +501,24 @@ h3 {
 }
 
 .page-container > * {
-  animation: console-rise 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: console-rise 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+.metrics-grid .metric-card:nth-child(1) { animation-delay: 40ms; }
+.metrics-grid .metric-card:nth-child(2) { animation-delay: 90ms; }
+.metrics-grid .metric-card:nth-child(3) { animation-delay: 140ms; }
+.metrics-grid .metric-card:nth-child(4) { animation-delay: 190ms; }
+
+.custom-table tbody tr {
+  animation: console-rise 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sidebar-link {
+  transition: background-color 220ms cubic-bezier(0.22, 1, 0.36, 1), color 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sidebar-link:hover { transform: translateX(2px); }
+.sidebar-link.active { transform: none; }
 
 /* Top Page Header */
 .view-header,
@@ -499,7 +528,6 @@ h3 {
   justify-content: space-between;
   margin: 0 calc(var(--page-pad-x, 1.75rem) * -1) 1.1rem;
   padding: 0.85rem var(--page-pad-x, 1.75rem);
-  padding-right: calc(var(--page-pad-x, 1.75rem) + 3rem);
   min-height: 58px;
   gap: 1rem;
   flex-wrap: wrap;
@@ -798,7 +826,7 @@ button.secondary:hover,
   color: var(--ink-secondary);
 }
 
-.metric-icon { display: grid; width: 28px; height: 28px; place-items: center; margin-bottom: 0.85rem; border-radius: 8px; background: rgba(166, 31, 36, 0.18); color: #e24b52; font-size: 0.82rem; }
+.metric-icon { position: absolute; top: 1rem; right: 1rem; display: grid; width: 28px; height: 28px; place-items: center; border-radius: 8px; background: rgba(166, 31, 36, 0.18); color: #e24b52; font-size: 0.82rem; }
 .metric-status { margin-top: 0.2rem; font-size: 0.72rem; font-weight: 700; }
 .metric-status.positive { color: #18aa65; }
 .metric-status.warning { color: #e1a51c; }
@@ -810,7 +838,7 @@ button.secondary:hover,
 .role-tile { transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 360ms cubic-bezier(0.22, 1, 0.36, 1), filter 360ms cubic-bezier(0.22, 1, 0.36, 1); }
 .role-tile:hover { transform: translateY(-3px); box-shadow: 0 9px 20px rgba(0, 0, 0, 0.2); filter: saturate(1.08); }
 .role-tile strong { font-size: 1.15rem; font-weight: 800; }
-.role-tile span { color: var(--ink-muted); font-size: 0.72rem; }
+.role-tile span { color: inherit; opacity: 0.82; font-size: 0.72rem; }
 .role-tile.students { background: var(--role-students-bg); color: var(--role-students-ink); }
 .role-tile.faculty { background: var(--role-faculty-bg); color: var(--role-faculty-ink); }
 .role-tile.admins { background: var(--role-admins-bg); color: var(--role-admins-ink); }
@@ -1491,9 +1519,120 @@ select:focus {
   transform: translateY(-50%);
 }
 
+.sidebar-brand-mark {
+  animation: brand-glow 2.8s ease-in-out infinite;
+}
+
+.sidebar-nav .sidebar-section {
+  animation: console-rise 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.sidebar-nav .sidebar-section:nth-child(1) { animation-delay: 40ms; }
+.sidebar-nav .sidebar-section:nth-child(2) { animation-delay: 90ms; }
+.sidebar-nav .sidebar-section:nth-child(3) { animation-delay: 140ms; }
+.sidebar-nav .sidebar-section:nth-child(4) { animation-delay: 190ms; }
+.sidebar-nav .sidebar-section:nth-child(5) { animation-delay: 240ms; }
+
+.sidebar-link .dot {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease, box-shadow 220ms ease;
+}
+
+.sidebar-link.active .dot {
+  animation: dot-pulse 1.7s ease-in-out infinite;
+}
+
+.metric-icon {
+  animation: icon-float 3.4s ease-in-out infinite;
+}
+
+.role-tile {
+  animation: console-pop 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.role-metrics .role-tile:nth-child(1) { animation-delay: 80ms; }
+.role-metrics .role-tile:nth-child(2) { animation-delay: 140ms; }
+.role-metrics .role-tile:nth-child(3) { animation-delay: 200ms; }
+.role-metrics .role-tile:nth-child(4) { animation-delay: 260ms; }
+
+.audit-activity li {
+  animation: console-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.audit-activity li:nth-child(1) { animation-delay: 60ms; }
+.audit-activity li:nth-child(2) { animation-delay: 120ms; }
+.audit-activity li:nth-child(3) { animation-delay: 180ms; }
+.audit-activity li:nth-child(4) { animation-delay: 240ms; }
+
+.timeline-list.setup .bullet-dot {
+  animation: dot-pulse 1.8s ease-in-out infinite;
+}
+
+.pill-badge {
+  animation: console-pop 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.card,
+.metric-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.card::after,
+.metric-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -40%;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.07), transparent);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+.card:hover::after,
+.metric-card:hover::after {
+  animation: sheen 720ms ease;
+}
+
+.theme-switch {
+  animation: console-rise 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.theme-switch button:active {
+  transform: scale(0.96);
+}
+
+.console-login-card {
+  animation: console-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both, login-glow 4.8s ease-in-out 420ms infinite;
+}
+
 @keyframes console-rise {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
+}
+
+@keyframes brand-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(166, 31, 36, 0.15); }
+  50% { box-shadow: 0 0 0 8px rgba(166, 31, 36, 0); }
+}
+
+@keyframes icon-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes dot-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(226, 75, 82, 0.35); }
+  50% { transform: scale(1.25); box-shadow: 0 0 0 5px rgba(226, 75, 82, 0); }
+}
+
+@keyframes sheen {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(320%); }
+}
+
+@keyframes login-glow {
+  0%, 100% { box-shadow: 0 24px 60px rgba(0, 0, 0, 0.38); }
+  50% { box-shadow: 0 28px 70px rgba(166, 31, 36, 0.22); }
 }
 
 @keyframes console-fade {
@@ -1560,7 +1699,14 @@ select:focus {
   .app-shell .metric-card,
   .app-shell .role-tile,
   .app-shell .timeline-item,
-  .app-shell .custom-table tbody tr {
+  .app-shell .custom-table tbody tr,
+  .sidebar-brand-mark,
+  .sidebar-nav .sidebar-section,
+  .metric-icon,
+  .pill-badge,
+  .theme-switch,
+  .card::after,
+  .metric-card::after {
     scroll-behavior: auto !important;
     animation: none !important;
     animation-duration: 0.01ms !important;
