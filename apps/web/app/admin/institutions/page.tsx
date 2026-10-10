@@ -8,6 +8,7 @@ import {
   Department,
   AppState,
 } from '../../../lib/data-connector';
+import { matchesQuery } from '../../../lib/search';
 
 export default function InstitutionsPage() {
   const [state, setState] = useState<AppState>(dataConnector.getState());
@@ -15,6 +16,7 @@ export default function InstitutionsPage() {
   const [showEditInstModal, setShowEditInstModal] = useState<Institution | null>(null);
   const [showAddDeptModal, setShowAddDeptModal] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
+  const [pageQuery, setPageQuery] = useState('');
 
   // New Institution Form state
   const [instName, setInstName] = useState('');
@@ -32,6 +34,7 @@ export default function InstitutionsPage() {
     const unsub = dataConnector.subscribe(() => {
       setState({ ...dataConnector.getState() });
     });
+    setPageQuery(new URLSearchParams(window.location.search).get('q') ?? '');
     return () => unsub();
   }, []);
 
@@ -90,7 +93,15 @@ export default function InstitutionsPage() {
     setEditingDept(null);
   }
 
-  const primaryInstitution = state.institutions[0] ?? {
+  const institutions = state.institutions.filter((inst) =>
+    matchesQuery(pageQuery, inst.name, inst.code, inst.status) ||
+    state.departments.some((dept) => matchesQuery(pageQuery, dept.name, dept.code, dept.campus, dept.admin)),
+  );
+  const departments = state.departments.filter((dept) =>
+    matchesQuery(pageQuery, dept.name, dept.code, dept.campus, dept.admin) ||
+    state.institutions.some((inst) => matchesQuery(pageQuery, inst.name, inst.code)),
+  );
+  const primaryInstitution = institutions[0] ?? state.institutions[0] ?? {
     name: 'GTBIT Delhi',
     campusesCount: 3,
     departmentsCount: state.departments.length,
@@ -128,7 +139,7 @@ export default function InstitutionsPage() {
               </tr>
             </thead>
             <tbody>
-              {state.institutions.map((inst) => (
+              {(pageQuery ? institutions : state.institutions).map((inst) => (
                 <tr key={inst.id}>
                   <td style={{ fontWeight: 500, color: 'var(--ink-primary)' }}>{inst.name}</td>
                   <td>{inst.campusesCount}</td>
@@ -177,7 +188,7 @@ export default function InstitutionsPage() {
               </tr>
             </thead>
             <tbody>
-              {state.departments.map((dept) => (
+              {(pageQuery ? departments : state.departments).map((dept) => (
                 <tr key={dept.id}>
                   <td style={{ color: 'var(--ink-primary)', fontWeight: 400 }}>{dept.name}</td>
                   <td>{dept.campus}</td>

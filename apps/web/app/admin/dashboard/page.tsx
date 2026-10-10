@@ -1,7 +1,8 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ConsoleSearch } from '../../../components/ConsoleSearch';
 import { PageHeader, UserChip, useConsoleUser } from '../../../components/console-ui';
 import { dataConnector, AppState } from '../../../lib/data-connector';
 
@@ -10,7 +11,6 @@ export default function DashboardPage() {
   const [state, setState] = useState<AppState>(dataConnector.getState());
   const [showTimezoneModal, setShowTimezoneModal] = useState(false);
   const [timezone, setTimezone] = useState('Asia/Kolkata (IST, UTC+05:30)');
-  const [search, setSearch] = useState('');
   const user = useConsoleUser();
 
   useEffect(() => {
@@ -42,13 +42,6 @@ export default function DashboardPage() {
     }
   }
 
-  function handleSearch(event: FormEvent) {
-    event.preventDefault();
-    const query = search.trim();
-    if (!query) return;
-    router.push(`/admin/people?q=${encodeURIComponent(query)}`);
-  }
-
   function handleConfirmTimezone() {
     dataConnector.completePendingSetup('set-3');
     dataConnector.addAudit(`Campus timezone confirmed: ${timezone}`, 'Success', 'Priya Nair');
@@ -59,15 +52,7 @@ export default function DashboardPage() {
     <section className="dashboard-page">
       <PageHeader title="Dashboard">
         <span className="institution-badge">{institutionName}</span>
-        <form className="topbar-search" onSubmit={handleSearch}>
-          <input
-            type="search"
-            aria-label="Search"
-            placeholder="Search..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </form>
+        <ConsoleSearch />
         <UserChip name={user.name} role={user.roleLabel} initials={user.initials} />
       </PageHeader>
 

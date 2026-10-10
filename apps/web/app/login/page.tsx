@@ -9,7 +9,7 @@ const REMEMBER_KEY = 'ricozedu.rememberEmail';
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('priya.nair@gtbit.edu');
-  const [password, setPassword] = useState('demo-access');
+  const [password, setPassword] = useState('demo-access12');
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,13 +34,18 @@ export default function LoginPage() {
       if (remember) window.localStorage.setItem(REMEMBER_KEY, email);
       else window.localStorage.removeItem(REMEMBER_KEY);
       savePortalRole('teacher');
-      saveSession({
+      const session = {
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
         tenantId: '',
         email: res.user?.email ?? email,
-        role: 'teacher',
-      });
+        role: 'teacher' as const,
+      };
+      const memberships = await api<Array<{ tenantId: string; status: string }>>('/v1/me/memberships', {
+        session,
+      }).catch(() => []);
+      session.tenantId = memberships.find((item) => item.status === 'active')?.tenantId ?? memberships[0]?.tenantId ?? '';
+      saveSession(session);
       router.push('/admin/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -74,7 +79,7 @@ export default function LoginPage() {
           type="password"
           autoComplete="current-password"
           required
-          minLength={8}
+          minLength={12}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />

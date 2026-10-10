@@ -84,18 +84,26 @@ export default function PeoplePage() {
       </PageHeader>
 
       {/* Search Bar */}
-      <div className="search-container">
+      <form
+        className="search-container"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const next = searchQuery.trim();
+          const url = next ? `/admin/people?q=${encodeURIComponent(next)}` : '/admin/people';
+          window.history.replaceState(null, '', url);
+        }}
+      >
         <input
-          type="text"
+          type="search"
           className="search-input-box"
           placeholder="Search by name, email, or phone..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
-        <button type="button" className="btn-secondary" style={{ padding: '0.65rem 1.15rem' }}>
+        <button type="submit" className="btn-secondary" style={{ padding: '0.65rem 1.15rem' }}>
           Search
         </button>
-      </div>
+      </form>
 
       {/* Possible Duplicate Card */}
       {flaggedDuplicates.length > 0 && (

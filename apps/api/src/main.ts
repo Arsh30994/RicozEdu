@@ -8,7 +8,7 @@ import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
-  const corsOrigins = (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
+  const corsOrigins = (process.env.CORS_ORIGINS ?? 'http://localhost:3000,http://127.0.0.1:3000')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);

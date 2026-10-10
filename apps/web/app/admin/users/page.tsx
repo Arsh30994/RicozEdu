@@ -7,6 +7,7 @@ import {
   UserRoleItem,
   AppState,
 } from '../../../lib/data-connector';
+import { matchesQuery } from '../../../lib/search';
 
 export default function UsersRolesPage() {
   const [state, setState] = useState<AppState>(dataConnector.getState());
@@ -18,11 +19,13 @@ export default function UsersRolesPage() {
   const [userEmail, setUserEmail] = useState('');
   const [userRole, setUserRole] = useState('Faculty');
   const [userDept, setUserDept] = useState('Computer Science & Engg.');
+  const [pageQuery, setPageQuery] = useState('');
 
   useEffect(() => {
     const unsub = dataConnector.subscribe(() => {
       setState({ ...dataConnector.getState() });
     });
+    setPageQuery(new URLSearchParams(window.location.search).get('q') ?? '');
     return () => unsub();
   }, []);
 
@@ -85,7 +88,7 @@ export default function UsersRolesPage() {
               </tr>
             </thead>
             <tbody>
-              {state.userRoles.map((u) => (
+              {state.userRoles.filter((user) => matchesQuery(pageQuery, user.name, user.email, user.role, user.scope, user.status)).map((u) => (
                 <tr key={u.id}>
                   <td style={{ fontWeight: 500 }}>{u.name}</td>
                   <td>{displayRole(u.role)}</td>

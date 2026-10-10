@@ -7,15 +7,18 @@ import {
   AuditActivity,
   AppState,
 } from '../../../lib/data-connector';
+import { matchesQuery } from '../../../lib/search';
 
 export default function AuditLogPage() {
   const [state, setState] = useState<AppState>(dataConnector.getState());
   const [inspectEvent, setInspectEvent] = useState<AuditActivity | null>(null);
+  const [pageQuery, setPageQuery] = useState('');
 
   useEffect(() => {
     const unsub = dataConnector.subscribe(() => {
       setState({ ...dataConnector.getState() });
     });
+    setPageQuery(new URLSearchParams(window.location.search).get('q') ?? '');
     return () => unsub();
   }, []);
 
@@ -38,7 +41,7 @@ export default function AuditLogPage() {
               </tr>
             </thead>
             <tbody>
-              {state.auditLogs.map((log) => (
+              {state.auditLogs.filter((log) => matchesQuery(pageQuery, log.action, log.label, log.actor, log.resource, log.status, log.result)).map((log) => (
                   <tr
                     key={log.id}
                     style={{ cursor: 'pointer' }}

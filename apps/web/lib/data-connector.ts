@@ -519,6 +519,7 @@ class DataConnectorService {
     this.state.institutions.unshift(newInst);
     this.addAudit(`Institution created — ${inst.name}`, 'Success', 'Priya Nair');
     this.save();
+    this.push('/v1/institutions', { code: newInst.code, name: newInst.name });
     return newInst;
   }
 
@@ -573,6 +574,12 @@ class DataConnectorService {
     this.state.people.unshift(newPerson);
     this.addAudit(`Person registered — ${person.name}`, 'Success', 'Priya Nair');
     this.save();
+    const [givenName, ...rest] = person.name.trim().split(/\s+/);
+    this.push('/v1/persons', {
+      givenName: givenName || person.name,
+      familyName: rest.join(' ') || givenName || 'Person',
+      primaryEmail: person.email,
+    });
     return newPerson;
   }
 
@@ -634,6 +641,20 @@ class DataConnectorService {
     this.state.totalStudents += 1;
     this.addAudit(`Student status → Active (${studentNo})`, 'Success', 'Priya Nair');
     this.save();
+    const institutionId = this.state.institutions.find((item) => /^[0-9a-f-]{36}$/i.test(item.id))?.id;
+    if (institutionId) {
+      const [givenName, ...rest] = data.name.trim().split(/\s+/);
+      this.push('/v1/students', {
+        institutionId,
+        studentNumber: studentNo,
+        status: 'active',
+        person: {
+          givenName: givenName || data.name,
+          familyName: rest.join(' ') || givenName || 'Student',
+          primaryEmail: data.email,
+        },
+      });
+    }
     return newStudent;
   }
 
@@ -660,6 +681,25 @@ class DataConnectorService {
     const student = this.state.students.find((s) => s.id === studentId);
     this.addAudit(`Student status → ${newStatus} (${student?.studentNo || studentId})`, 'Success', 'Priya Nair');
     this.save();
+    if (/^[0-9a-f-]{36}$/i.test(studentId)) {
+      const statusMap: Record<string, string> = {
+        Active: 'active',
+        Invited: 'prospective',
+        Suspended: 'suspended',
+        Withdrawn: 'withdrawn',
+        Prospective: 'prospective',
+        Graduated: 'graduated',
+      };
+      this.push(
+        `/v1/students/${studentId}/status`,
+        {
+          toStatus: statusMap[newStatus] ?? 'active',
+          reason: reason || 'Updated from the admin console',
+          version: 1,
+        },
+        'PATCH',
+      );
+    }
   }
 
   public addAudit(
@@ -701,6 +741,13 @@ class DataConnectorService {
     this.state.userRoles.unshift(newUser);
     this.addAudit(`Role assigned — ${data.role} (${data.name})`, 'Success', 'Priya Nair');
     this.save();
+    const [givenName, ...rest] = data.name.trim().split(/\s+/);
+    this.push('/v1/users', {
+      email: data.email,
+      password: `Invite-${Date.now().toString(36)}`,
+      givenName: givenName || data.name,
+      familyName: rest.join(' ') || 'User',
+    });
     return newUser;
   }
 
@@ -722,6 +769,11 @@ class DataConnectorService {
     );
     this.addAudit('role.assign', 'Success', 'Priya Nair', `Role assigned — ${data.role}`);
     this.save();
+  }
+
+  private push(path: string, body: unknown, method = 'POST') {
+    if (!loadSession()?.accessToken) return;
+    void api(path, { method, body: JSON.stringify(body) }).catch(() => undefined);
   }
 
   public setSelectedCampus(campus: string) {

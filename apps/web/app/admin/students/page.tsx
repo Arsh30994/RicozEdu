@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import { PageHeader, StatusPill } from '../../../components/console-ui';
 import { dataConnector, AppState } from '../../../lib/data-connector';
+import { matchesQuery } from '../../../lib/search';
 
 export default function StudentsPage() {
   const [state, setState] = useState<AppState>(dataConnector.getState());
   const [selectedStudentId, setSelectedStudentId] = useState<string>('stu-1');
   const [showConvertModal, setShowConvertModal] = useState(false);
+  const [pageQuery, setPageQuery] = useState('');
 
   // Convert Form state
   const [selectedPersonId, setSelectedPersonId] = useState('');
@@ -21,11 +23,15 @@ export default function StudentsPage() {
     const unsub = dataConnector.subscribe(() => {
       setState({ ...dataConnector.getState() });
     });
+    setPageQuery(new URLSearchParams(window.location.search).get('q') ?? '');
     return () => unsub();
   }, []);
 
+  const visibleStudents = state.students.filter((student) =>
+    matchesQuery(pageQuery, student.name, student.email, student.studentNo, student.status, student.campus, student.department),
+  );
   const selectedStudent =
-    state.students.find((s) => s.id === selectedStudentId) || state.students[0];
+    visibleStudents.find((s) => s.id === selectedStudentId) || visibleStudents[0];
   const listedDepartments = [...new Set(state.students.map((student) => student.department).filter(Boolean))];
   const listDepartment = listedDepartments.length === 1 ? listedDepartments[0] : state.departments[0]?.name;
 
@@ -88,7 +94,7 @@ export default function StudentsPage() {
               </tr>
             </thead>
             <tbody>
-              {state.students.map((student) => {
+              {visibleStudents.map((student) => {
                 const isSelected = student.id === selectedStudent?.id;
                 return (
                   <tr
@@ -106,6 +112,13 @@ export default function StudentsPage() {
                   </tr>
                 );
               })}
+              {visibleStudents.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', color: 'var(--ink-secondary)', padding: '1.5rem' }}>
+                    No students match “{pageQuery}”.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
