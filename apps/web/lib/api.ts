@@ -59,10 +59,11 @@ export async function api<T>(
   opts: RequestInit & { session?: Session | null } = {},
 ): Promise<T> {
   const session = opts.session === undefined ? loadSession() : opts.session;
+  const isFormData = typeof FormData !== 'undefined' && opts.body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...(opts.headers as Record<string, string>),
   };
+  if (!isFormData && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
   if (session?.accessToken) {
     headers.Authorization = `Bearer ${session.accessToken}`;
   }

@@ -25,6 +25,10 @@ const NAV_SECTIONS: NavSection[] = [
     { href: '/admin/people', label: 'People', matchPrefixes: ['/admin/people', '/people'] },
     { href: '/admin/students', label: 'Students', matchPrefixes: ['/admin/students', '/students'] },
   ] },
+  { label: 'AI learning', items: [
+    { href: '/assistant', label: 'Ricoz AI', matchPrefixes: ['/assistant'] },
+    { href: '/study', label: 'Study companion', matchPrefixes: ['/study'] },
+  ] },
   { label: 'Access', items: [{ href: '/admin/users', label: 'Users & roles', matchPrefixes: ['/admin/users', '/users'] }] },
   { label: 'Compliance', items: [{ href: '/admin/audit', label: 'Audit log', matchPrefixes: ['/admin/audit', '/audit'] }] },
 ];

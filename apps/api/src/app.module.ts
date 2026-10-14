@@ -10,6 +10,7 @@ import { AuditModule } from './audit/audit.module';
 import { AcademicsModule } from './academics/academics.module';
 import { LifecycleModule } from './lifecycle/lifecycle.module';
 import { FeesModule } from './fees/fees.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { FeesModule } from './fees/fees.module';
     AcademicsModule,
     LifecycleModule,
     FeesModule.register(),
+    AiModule,
   ],
 })
 export class AppModule {}

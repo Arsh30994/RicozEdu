@@ -43,6 +43,9 @@ export const PERMISSIONS = {
   SESSION_MANAGE: 'session.manage',
   MFA_MANAGE: 'mfa.manage',
   AUDIT_READ: 'audit.read',
+  AI_USE: 'ai.use',
+  AI_DOCUMENT_MANAGE: 'ai.document.manage',
+  AI_STUDY_USE: 'ai.study.use',
   PLATFORM_BOOTSTRAP: 'platform.bootstrap',
 } as const;
 
