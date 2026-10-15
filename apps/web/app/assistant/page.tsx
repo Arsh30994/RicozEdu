@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ChangeEvent, DragEvent, FormEvent, useEffect, useRef, useState } from 'react';
+import type { SessionStatus, WebSession as WebSessionInstance } from '@omnidim-ai/client';
 import { api, loadSession } from '../../lib/api';
 
 type Source = { documentId: string; title: string; chunkId: string; ordinal: number; excerpt: string };
@@ -49,6 +50,8 @@ export default function AssistantPage() {
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [question, setQuestion] = useState('');
   const [speechPreview, setSpeechPreview] = useState('');
+  const [voiceLiveTranscript, setVoiceLiveTranscript] = useState<{ role: 'user' | 'agent'; text: string } | null>(null);
+  const [voiceStatus, setVoiceStatus] = useState<'idle' | 'connecting' | 'active'>('idle');
   const [agent, setAgent] = useState(false);
   const [sending, setSending] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -61,6 +64,8 @@ export default function AssistantPage() {
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
   const recognition = useRef<SpeechRecognitionLike | null>(null);
+  const voiceSession = useRef<WebSessionInstance | null>(null);
+  const voiceTranscriptWrites = useRef<Promise<void>>(Promise.resolve());
   const speechBase = useRef('');
 
   async function refreshSidebar() {
@@ -90,6 +95,8 @@ export default function AssistantPage() {
     })();
     return () => {
       recognition.current?.abort();
+      voiceSession.current?.stop();
+      window.speechSynthesis?.cancel();
       stream.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
@@ -297,7 +304,86 @@ export default function AssistantPage() {
     window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
   }
 
+  async function toggleVoiceAgent() {
+    if (voiceSession.current) {
+      voiceSession.current.stop();
+      voiceSession.current = null;
+      setVoiceStatus('idle');
+      setVoiceLiveTranscript(null);
+      return;
+    }
+    if (!hasSession || voiceStatus === 'connecting') return;
+
+    setError(null);
+    setVoiceStatus('connecting');
+    try {
+      const session = await api<{ conversationId: string; wsUrl: string }>('/v1/ai/voice/session', {
+        method: 'POST',
+        body: JSON.stringify({ conversationId }),
+      });
+      setConversationId(session.conversationId);
+      const userSession = loadSession();
+      if (userSession) {
+        window.localStorage.setItem(conversationStorageKey(userSession.email, userSession.tenantId), session.conversationId);
+      }
+      void refreshSidebar().catch((reason: unknown) => setError(readError(reason)));
+
+      const { WebSession } = await import('@omnidim-ai/client');
+      const webSession = new WebSession();
+      voiceSession.current = webSession;
+      webSession.on('status', (status: SessionStatus) => {
+        if (status === 'active') {
+          setVoiceStatus('active');
+        } else if (status === 'connecting') {
+          setVoiceStatus('connecting');
+        } else {
+          voiceSession.current = null;
+          setVoiceStatus('idle');
+          setVoiceLiveTranscript(null);
+          if (status.reason !== 'hangup' && status.reason !== 'stopped') {
+            setError(`Voice session ended (${status.reason}). You can start another session.`);
+          }
+        }
+      });
+      webSession.on('transcript', (transcript) => {
+        setVoiceLiveTranscript({ role: transcript.role, text: transcript.text });
+        if (!transcript.final || !transcript.text.trim()) return;
+
+        const localMessageId = `local-voice-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const role = transcript.role === 'user' ? 'user' : 'assistant';
+        setMessages((current) => [...current, { id: localMessageId, role, content: transcript.text }]);
+        setVoiceLiveTranscript(null);
+        voiceTranscriptWrites.current = voiceTranscriptWrites.current.then(async () => {
+          const saved = await api<{ messageId: string }>('/v1/ai/voice/transcript', {
+            method: 'POST',
+            body: JSON.stringify({ conversationId: session.conversationId, role, content: transcript.text }),
+          });
+          setMessages((current) => current.map((message) => (
+            message.id === localMessageId ? { ...message, id: saved.messageId } : message
+          )));
+          void refreshSidebar().catch((reason: unknown) => setError(readError(reason)));
+        }).catch((reason: unknown) => {
+          setError(`Voice transcript could not be saved to history: ${readError(reason)}`);
+        });
+      });
+      webSession.on('error', (reason) => {
+        setError(`Voice agent error: ${reason.message}`);
+      });
+      await webSession.start({ wsUrl: session.wsUrl });
+    } catch (reason) {
+      voiceSession.current?.stop();
+      voiceSession.current = null;
+      setVoiceStatus('idle');
+      setVoiceLiveTranscript(null);
+      setError(readError(reason));
+    }
+  }
+
   function startNewConversation() {
+    voiceSession.current?.stop();
+    voiceSession.current = null;
+    setVoiceStatus('idle');
+    setVoiceLiveTranscript(null);
     setConversationId(undefined);
     setMessages([]);
     setSpeechPreview('');
@@ -379,8 +465,8 @@ export default function AssistantPage() {
           {!messages.length ? (
             <div className="ai-welcome">
               <span className="ai-sparkle">✦</span>
-              <h2>Ask about your approved material</h2>
-              <p>Try “Summarise the attendance policy” after uploading an approved document, or turn on Academic agent to explain an authorised degree-progress result.</p>
+              <h2>I’m your study helper. Ask me whatever you want.</h2>
+              <p>Ask about what you’re learning. I can explain and summarize approved course material, help you revise, or plan a study session. For institution-specific answers, I rely on approved sources.</p>
             </div>
           ) : messages.map((message) => (
             <article key={message.id} className={`ai-message ${message.role}`}>
@@ -402,12 +488,29 @@ export default function AssistantPage() {
               <p>{speechPreview}</p>
             </article>
           ) : null}
+          {voiceLiveTranscript ? (
+            <article className={`ai-message ${voiceLiveTranscript.role === 'user' ? 'user' : 'assistant'} ai-live-transcript`} role="status">
+              <div className="ai-message-label">
+                {voiceLiveTranscript.role === 'user' ? 'You · listening' : 'Ricoz AI · speaking'}
+              </div>
+              <p>{voiceLiveTranscript.text}</p>
+            </article>
+          ) : null}
           {sending ? <div className="ai-thinking"><span />Ricoz AI is checking approved evidence…</div> : null}
         </div>
 
         <form className="ai-composer" onSubmit={(event) => void ask(event)}>
           <textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask about a course, policy, or approved document…" maxLength={4000} rows={3} />
           <div className="ai-composer-actions">
+            <button
+              type="button"
+              className={voiceStatus === 'active' ? 'voice-agent-active' : 'voice-agent-button'}
+              onClick={() => void toggleVoiceAgent()}
+              disabled={!hasSession || voiceStatus === 'connecting'}
+              aria-pressed={voiceStatus === 'active'}
+            >
+              {voiceStatus === 'connecting' ? 'Connecting…' : voiceStatus === 'active' ? '■ End voice conversation' : '◉ Start voice conversation'}
+            </button>
             <button type="button" className={recording ? 'voice-recording' : 'voice-button'} onClick={() => void toggleRecording()} aria-pressed={recording}>
               {recording ? '■ Stop recording' : '◉ Ask by voice'}
             </button>
@@ -423,7 +526,7 @@ export default function AssistantPage() {
 function readError(reason: unknown) {
   if (!(reason instanceof Error)) return 'Something went wrong. Please try again.';
   if (reason.message.toLowerCase().includes('missing bearer token')) {
-    return 'Your session is not signed in. Sign in to upload files and save conversation history.';
+    return 'Your session is not signed in or has expired. Sign in to upload files, use the voice agent, and save conversation history.';
   }
   return reason.message;
 }

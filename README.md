@@ -21,6 +21,18 @@ npx pnpm --filter @ricozedu/api dev
 
 Bootstrap a tenant with `POST /v1/tenants` and header `X-Bootstrap-Token`.
 
+## AI assistant and voice agent
+
+The chat assistant uses approved course material and authorized academic tools. For full-duplex voice, configure `OMNIDIM_API_KEY` and the numeric `OMNIDIM_AGENT_ID` in the API server environment. Do not expose the API key in a `NEXT_PUBLIC_` variable. The browser receives only the short-lived session URL.
+
+OmniDimension session creation does not accept an agent instruction prompt. Configure the selected agent in the OmniDimension dashboard using its [conversation-flow guide](https://docs.omnidim.io/docs/dashboard-guides/configure-your-agent). Suggested static welcome message:
+
+> I’m your study helper. Ask me whatever you want.
+
+Suggested agent instructions:
+
+> You are RicozEdu’s friendly study helper. Help learners understand academic topics by explaining concepts, summarizing supplied course material, creating practice questions, and planning revision. Keep spoken replies warm, natural, and concise; explain step by step when useful and ask one focused follow-up question when a request is unclear. Stay focused on learning. If asked for something unrelated, briefly explain that your role is study support and guide the learner back to an educational question. Never invent institution-specific policies, grades, deadlines, fees, or account details; say when you cannot verify them and direct the learner to approved material or staff. Do not claim access to files or student records unless an authorized source provides them, and never ask for passwords or sensitive personal information.
+
 ## Docs
 
 - ADRs: `docs/adr/`

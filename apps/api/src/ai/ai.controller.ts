@@ -38,6 +38,16 @@ const AskSchema = z.object({
     .optional(),
 });
 
+const VoiceSessionSchema = z.object({
+  conversationId: z.string().uuid().optional(),
+});
+
+const VoiceTranscriptSchema = z.object({
+  conversationId: z.string().uuid(),
+  role: z.enum(['user', 'assistant']),
+  content: z.string().trim().min(1).max(4000),
+});
+
 const IngestTextSchema = z.object({
   title: z.string().trim().min(1).max(240),
   content: z.string().trim().min(20).max(1_000_000),
@@ -81,6 +91,33 @@ export class AiController {
   ) {
     rejectBodyTenantId(body);
     return this.ai.chat(this.context(tenantId, user, membershipId, correlationId), parse(AskSchema, body));
+  }
+
+  @Post('voice/session')
+  @RequirePermissions(PERMISSIONS.AI_USE)
+  async createVoiceSession(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: AuthUser,
+    @MembershipId() membershipId: string,
+    @CorrelationId() correlationId: string,
+    @Body() body: unknown,
+  ) {
+    rejectBodyTenantId(body);
+    const input = parse(VoiceSessionSchema, body);
+    return this.ai.createVoiceSession(this.context(tenantId, user, membershipId, correlationId), input.conversationId);
+  }
+
+  @Post('voice/transcript')
+  @RequirePermissions(PERMISSIONS.AI_USE)
+  async saveVoiceTranscript(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: AuthUser,
+    @MembershipId() membershipId: string,
+    @CorrelationId() correlationId: string,
+    @Body() body: unknown,
+  ) {
+    rejectBodyTenantId(body);
+    return this.ai.saveVoiceTranscript(this.context(tenantId, user, membershipId, correlationId), parse(VoiceTranscriptSchema, body));
   }
 
   @Get('conversations')
