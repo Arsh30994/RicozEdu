@@ -162,4 +162,72 @@ describe('AiService evidence safeguards', () => {
     ]);
     expect(query.mock.calls[2]?.[0]).toContain('UPDATE ai_conversations');
   });
+
+  it('builds and saves an AI plan from syllabus evidence and the learner pace', async () => {
+    process.env.AI_PROVIDER = 'groq';
+    process.env.GROQ_API_KEY = 'test-groq-key';
+    const today = new Date();
+    const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+    const targetDate = new Date(todayUtc + 2 * 86_400_000).toISOString().slice(0, 10);
+    const generatedPlan = {
+      summary: 'Review the remaining database topics in short, focused blocks.',
+      sessions: [
+        { day: 1, subject: 'Database systems', topic: 'Normalization', minutes: 60, focus: 'Recall normal forms, then check the syllabus examples.' },
+        { day: 2, subject: 'Database systems', topic: 'Indexes', minutes: 45, focus: 'Compare index types and finish with a short self-test.' },
+      ],
+    };
+    const query = jest.fn()
+      .mockResolvedValueOnce({
+        rows: [{
+          chunk_id: 'chunk-1',
+          document_id: 'document-1',
+          title: 'Database syllabus',
+          ordinal: 0,
+          content: 'Unit 1: normalization and functional dependencies.',
+        }],
+      })
+      .mockResolvedValueOnce({ rows: [{ id: 'artifact-1', created_at: '2026-10-15T00:00:00.000Z' }] });
+    const db = {
+      withTenantTx: jest.fn(async (_tenantId: string, _userId: string | null, operation: (client: { query: typeof query }) => unknown) => operation({ query })),
+    };
+    const audit = { write: jest.fn().mockResolvedValue(undefined) };
+    const planService = new AiService(db as never, audit as never, {} as never, {} as never);
+    const fetch = jest.spyOn(global, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify(generatedPlan) } }],
+    }), { status: 200 }));
+
+    const result = await planService.createRevisionPlan({
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      membershipId: 'membership-1',
+      authorizationVersion: 1,
+      correlationId: 'correlation-1',
+    }, {
+      documentIds: ['document-1'],
+      subjects: ['Database systems'],
+      targetDate,
+      minutesPerDay: 90,
+      minutesPerTopic: 30,
+      completionPercent: 25,
+    });
+
+    expect(result.kind).toBe('revision_plan');
+    expect(result.content).toEqual({
+      targetDate,
+      summary: generatedPlan.summary,
+      sessions: [
+        { ...generatedPlan.sessions[0], date: new Date(todayUtc + 86_400_000).toISOString().slice(0, 10) },
+        { ...generatedPlan.sessions[1], date: targetDate },
+      ],
+    });
+    expect(result.sources.map((source) => source.title)).toEqual(['Database syllabus']);
+    expect(fetch).toHaveBeenCalledWith('https://api.groq.com/openai/v1/chat/completions', expect.anything());
+    const request = fetch.mock.calls[0]?.[1];
+    const requestPayload = JSON.parse(String(request?.body)) as { messages: Array<{ role: string; content: string }> };
+    const learnerInput = JSON.parse(requestPayload.messages.find((message) => message.role === 'user')?.content ?? '{}') as {
+      typicalMinutesPerTopic?: number;
+    };
+    expect(learnerInput.typicalMinutesPerTopic).toBe(30);
+    expect(query.mock.calls[1]?.[0]).toContain('INSERT INTO ai_study_artifacts');
+  });
 });

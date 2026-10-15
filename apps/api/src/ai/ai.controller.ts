@@ -62,9 +62,12 @@ const FlashcardsSchema = z.object({
 const QuizSchema = FlashcardsSchema.extend({ questionCount: z.number().int().min(2).max(10).default(5) });
 
 const PlanSchema = z.object({
-  subjects: z.array(z.string().trim().min(1).max(120)).min(1).max(8),
+  documentIds: z.array(z.string().uuid()).min(1).max(8),
+  subjects: z.array(z.string().trim().min(1).max(120)).max(8).default([]),
   targetDate: z.string().date(),
   minutesPerDay: z.number().int().min(15).max(480),
+  minutesPerTopic: z.number().int().min(10).max(300),
+  completionPercent: z.number().int().min(0).max(100),
 });
 
 function parse<T>(schema: z.ZodType<T>, body: unknown): T {
@@ -222,7 +225,11 @@ export class AiController {
     @Body() body: unknown,
   ) {
     rejectBodyTenantId(body);
-    return this.ai.createRevisionPlan(this.context(tenantId, user, membershipId, correlationId), parse(PlanSchema, body));
+    const input = parse(PlanSchema, body);
+    return this.ai.createRevisionPlan(this.context(tenantId, user, membershipId, correlationId), {
+      ...input,
+      subjects: input.subjects ?? [],
+    });
   }
 
   @Post('transcribe')

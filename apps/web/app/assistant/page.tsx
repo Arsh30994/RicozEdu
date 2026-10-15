@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChangeEvent, DragEvent, FormEvent, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import type { SessionStatus, WebSession as WebSessionInstance } from '@omnidim-ai/client';
 import { api, loadSession } from '../../lib/api';
 
@@ -38,6 +38,7 @@ type SpeechWindow = Window & {
 
 const LAST_CONVERSATION_KEY = 'ricozedu.ai.lastConversation';
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
+const MAX_UPLOAD_COUNT = 8;
 
 function conversationStorageKey(email: string, tenantId: string) {
   return `${LAST_CONVERSATION_KEY}:${encodeURIComponent(email)}:${tenantId}`;
@@ -57,7 +58,8 @@ export default function AssistantPage() {
   const [recording, setRecording] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [draggingFile, setDraggingFile] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [hasSession, setHasSession] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
@@ -67,6 +69,9 @@ export default function AssistantPage() {
   const voiceSession = useRef<WebSessionInstance | null>(null);
   const voiceTranscriptWrites = useRef<Promise<void>>(Promise.resolve());
   const speechBase = useRef('');
+  const sessionReady = useRef(false);
+  const uploadFilesRef = useRef<(files: File[]) => Promise<void>>(async () => {});
+  sessionReady.current = hasSession;
 
   async function refreshSidebar() {
     const [docs, chats] = await Promise.all([
@@ -177,49 +182,127 @@ export default function AssistantPage() {
     return null;
   }
 
-  function selectUpload(file: File | undefined) {
-    if (!file) return;
-    const validationError = validateUpload(file);
-    setError(validationError);
-    setSelectedFile(validationError ? null : file);
+  function selectUploads(files: File[]) {
+    if (!files.length) return;
+    setUploadMessage(null);
+    if (files.length > MAX_UPLOAD_COUNT) {
+      setSelectedFiles([]);
+      if (fileInput.current) fileInput.current.value = '';
+      setError(`Choose up to ${MAX_UPLOAD_COUNT} files at a time.`);
+      return;
+    }
+    const invalidFile = files.map((file) => ({ file, reason: validateUpload(file) })).find((item) => item.reason);
+    if (invalidFile?.reason) {
+      setSelectedFiles([]);
+      if (fileInput.current) fileInput.current.value = '';
+      setError(`${invalidFile.file.name}: ${invalidFile.reason}`);
+      return;
+    }
+    setError(null);
+    setSelectedFiles(files);
   }
 
   function onFileChange(event: ChangeEvent<HTMLInputElement>) {
-    selectUpload(event.currentTarget.files?.[0]);
+    selectUploads(Array.from(event.currentTarget.files ?? []));
   }
 
-  function onFileDrop(event: DragEvent<HTMLDivElement>) {
-    event.preventDefault();
-    setDraggingFile(false);
-    selectUpload(event.dataTransfer.files[0]);
-  }
-
-  async function uploadDocument(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedFile) {
+  async function uploadFiles(files: File[]) {
+    if (!files.length) {
       setError('Choose or drop a document before uploading.');
       return;
     }
-    const validationError = validateUpload(selectedFile);
-    if (validationError) {
-      setError(validationError);
+    if (!sessionReady.current) {
+      setError('Sign in before uploading approved course material.');
       return;
     }
+    if (files.length > MAX_UPLOAD_COUNT) {
+      setError(`Choose up to ${MAX_UPLOAD_COUNT} files at a time.`);
+      return;
+    }
+    const invalidFile = files.map((file) => ({ file, reason: validateUpload(file) })).find((item) => item.reason);
+    if (invalidFile?.reason) {
+      setError(`${invalidFile.file.name}: ${invalidFile.reason}`);
+      return;
+    }
+
     setUploading(true);
     setError(null);
+    setUploadMessage(null);
+    let uploadedCount = 0;
+    const failures: string[] = [];
     try {
-      const data = new FormData();
-      data.append('file', selectedFile);
-      await api('/v1/ai/documents/upload', { method: 'POST', body: data });
-      setSelectedFile(null);
-      if (fileInput.current) fileInput.current.value = '';
-      await refreshSidebar();
-    } catch (reason) {
-      setError(readError(reason));
+      for (const file of files) {
+        const data = new FormData();
+        data.append('file', file);
+        try {
+          await api('/v1/ai/documents/upload', { method: 'POST', body: data });
+          uploadedCount += 1;
+        } catch (reason) {
+          failures.push(`${file.name}: ${readError(reason)}`);
+        }
+      }
+      if (uploadedCount) {
+        setSelectedFiles([]);
+        if (fileInput.current) fileInput.current.value = '';
+        try {
+          await refreshSidebar();
+          setUploadMessage(`Uploaded ${uploadedCount} document${uploadedCount === 1 ? '' : 's'} successfully.`);
+        } catch (reason) {
+          setError(`Uploaded ${uploadedCount} document${uploadedCount === 1 ? '' : 's'}, but the list could not refresh: ${readError(reason)}`);
+        }
+      }
+      if (failures.length) {
+        setError(`Could not upload ${failures.length} file${failures.length === 1 ? '' : 's'}: ${failures.join(' · ')}`);
+      }
     } finally {
       setUploading(false);
     }
   }
+  uploadFilesRef.current = uploadFiles;
+
+  useEffect(() => {
+    let dragDepth = 0;
+    const isFileDrag = (event: globalThis.DragEvent) => (
+      Boolean(event.dataTransfer?.files.length) || Array.from(event.dataTransfer?.types ?? []).includes('Files')
+    );
+    const handleDragEnter = (event: globalThis.DragEvent) => {
+      if (!isFileDrag(event)) return;
+      event.preventDefault();
+      dragDepth += 1;
+      setDraggingFile(true);
+    };
+    const handleDragOver = (event: globalThis.DragEvent) => {
+      const transfer = event.dataTransfer;
+      if (!transfer || !isFileDrag(event)) return;
+      event.preventDefault();
+      transfer.dropEffect = 'copy';
+    };
+    const handleDragLeave = (event: globalThis.DragEvent) => {
+      if (!isFileDrag(event)) return;
+      event.preventDefault();
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (!dragDepth) setDraggingFile(false);
+    };
+    const handleDrop = (event: globalThis.DragEvent) => {
+      const transfer = event.dataTransfer;
+      if (!transfer || !isFileDrag(event)) return;
+      event.preventDefault();
+      dragDepth = 0;
+      setDraggingFile(false);
+      void uploadFilesRef.current(Array.from(transfer.files));
+    };
+
+    window.addEventListener('dragenter', handleDragEnter);
+    window.addEventListener('dragover', handleDragOver);
+    window.addEventListener('dragleave', handleDragLeave);
+    window.addEventListener('drop', handleDrop);
+    return () => {
+      window.removeEventListener('dragenter', handleDragEnter);
+      window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('dragleave', handleDragLeave);
+      window.removeEventListener('drop', handleDrop);
+    };
+  }, []);
 
   async function toggleRecording() {
     if (recording) {
@@ -394,6 +477,12 @@ export default function AssistantPage() {
   }
 
   return (
+    <>
+    {draggingFile ? (
+      <div className="ai-page-drop-overlay" role="status" aria-live="polite">
+        <div><strong>Drop course material anywhere</strong><span>PDF, TXT, or Markdown · up to 8 files · 10 MB each</span></div>
+      </div>
+    ) : null}
     <section className="ai-workspace">
       <aside className="ai-sidepanel" aria-label="Ricoz AI resources">
         <button className="btn-primary ai-new-chat" type="button" onClick={startNewConversation}>
@@ -409,31 +498,27 @@ export default function AssistantPage() {
         </div>
 
         <div className="ai-side-heading">Approved knowledge</div>
-        <form onSubmit={uploadDocument} className="ai-upload-form">
+        <form onSubmit={(event) => { event.preventDefault(); void uploadFiles(selectedFiles); }} className="ai-upload-form">
           <div
             className={`ai-dropzone${draggingFile ? ' dragging' : ''}`}
-            onDragEnter={(event) => { event.preventDefault(); setDraggingFile(true); }}
-            onDragOver={(event) => event.preventDefault()}
-            onDragLeave={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDraggingFile(false);
-            }}
-            onDrop={onFileDrop}
           >
-            <label htmlFor="knowledge-file">{selectedFile ? selectedFile.name : 'Drop a file here or choose one'}</label>
-            <span>PDF, TXT, or Markdown · up to 10 MB</span>
+            <label htmlFor="knowledge-file">{selectedFiles.length ? selectedFiles.map((file) => file.name).join(', ') : 'Drop a file anywhere on this page or choose one'}</label>
+            <span>PDF, TXT, or Markdown · up to 8 files · 10 MB each</span>
             <input
               ref={fileInput}
               id="knowledge-file"
               name="document"
               type="file"
+              multiple
               accept=".pdf,.txt,.md,.markdown,text/plain,text/markdown,application/pdf"
               onChange={onFileChange}
               disabled={!hasSession || uploading}
             />
           </div>
-          <button type="submit" className="btn-secondary" disabled={!hasSession || uploading || !selectedFile}>
-            {uploading ? 'Uploading…' : selectedFile ? 'Upload document' : 'Choose a document first'}
+          <button type="submit" className="btn-secondary" disabled={!hasSession || uploading || !selectedFiles.length}>
+            {uploading ? 'Uploading…' : selectedFiles.length ? `Upload ${selectedFiles.length} document${selectedFiles.length === 1 ? '' : 's'}` : 'Choose a document first'}
           </button>
+          {uploadMessage ? <p className="ai-upload-success" role="status">{uploadMessage}</p> : null}
         </form>
         <div className="ai-document-list">
           {documents.map((document) => <div key={document.id}><strong>{document.title}</strong><span>{document.chunkCount} source excerpts</span></div>)}
@@ -520,6 +605,7 @@ export default function AssistantPage() {
         {error ? <p className="error ai-error" role="alert">{error}</p> : null}
       </div>
     </section>
+    </>
   );
 }
 

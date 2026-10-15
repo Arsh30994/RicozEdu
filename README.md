@@ -25,6 +25,8 @@ Bootstrap a tenant with `POST /v1/tenants` and header `X-Bootstrap-Token`.
 
 The chat assistant uses approved course material and authorized academic tools. For full-duplex voice, configure `OMNIDIM_API_KEY` and the numeric `OMNIDIM_AGENT_ID` in the API server environment. Do not expose the API key in a `NEXT_PUBLIC_` variable. The browser receives only the short-lived session URL.
 
+The Study companion can generate syllabus-aware revision plans from selected approved documents. Configure `AI_PROVIDER=groq` and `GROQ_API_KEY` in the API server environment to enable AI planning. Learners can provide a target date, available minutes per day, typical minutes per topic, and syllabus completion percentage; plans are saved as study artifacts and cite their source documents. The planner returns an explicit error if the AI provider is unavailable rather than creating a generic schedule.
+
 OmniDimension session creation does not accept an agent instruction prompt. Configure the selected agent in the OmniDimension dashboard using its [conversation-flow guide](https://docs.omnidim.io/docs/dashboard-guides/configure-your-agent). Suggested static welcome message:
 
 > I’m your study helper. Ask me whatever you want.

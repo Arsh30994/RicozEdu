@@ -1830,3 +1830,26 @@ select:focus {
   .btn-primary:hover,
   .btn-secondary:hover { transform: none; }
 }
+
+.ai-page-drop-overlay { position: fixed; z-index: 10000; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(10, 12, 16, 0.82); backdrop-filter: blur(4px); pointer-events: none; }
+.ai-page-drop-overlay > div { display: grid; gap: 0.45rem; width: min(520px, 100%); padding: 2rem; border: 2px dashed #e24b52; border-radius: 18px; background: var(--surface-card); color: var(--ink-primary); text-align: center; box-shadow: 0 20px 70px rgba(0, 0, 0, 0.35); }
+.ai-page-drop-overlay strong { font-size: clamp(1.15rem, 3vw, 1.7rem); }
+.ai-page-drop-overlay span, .ai-upload-success { color: var(--ink-secondary); font-size: 0.85rem; }
+.ai-upload-success { margin: 0; color: var(--badge-success-ink); }
+.study-plan-source-note, .study-plan-citations { margin: 0; color: var(--ink-secondary); font-size: 0.78rem; line-height: 1.5; overflow-wrap: anywhere; }
+.study-plan-result { display: grid; gap: 0.65rem; }
+.study-plan-summary { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 0.9rem; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--surface-muted); }
+.study-plan-summary p { margin: 0.3rem 0 0; color: var(--ink-secondary); line-height: 1.55; }
+.study-plan-summary > span { flex: 0 0 auto; padding: 0.3rem 0.5rem; border-radius: 999px; background: var(--surface-card); color: var(--ink-primary); font-size: 0.75rem; font-weight: 700; }
+.revision-sessions li > div { display: grid; gap: 0.15rem; }.revision-sessions li > div > span { overflow-wrap: anywhere; }
+.revision-session-detail { min-width: 32%; text-align: right; }
+@media (max-width: 900px) {
+  .revision-planner form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .study-plan-summary { flex-direction: column; }
+  .revision-session-detail { text-align: left; }
+}
+@media (max-width: 640px) {
+  .revision-planner form { grid-template-columns: 1fr; }
+  .ai-page-drop-overlay > div { padding: 1.4rem; }
+  .revision-sessions li { align-items: stretch; }
+}
