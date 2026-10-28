@@ -28,3 +28,9 @@ export type AiRequestContext = {
   authorizationVersion: number;
   correlationId: string;
 };
+
+export type AiStreamSink = {
+  send(event: 'meta' | 'delta' | 'done' | 'error', data: unknown): void;
+};
+
+export type AiHistoryTurn = { role: 'user' | 'assistant'; content: string };

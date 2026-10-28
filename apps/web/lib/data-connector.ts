@@ -55,7 +55,7 @@ export interface StudentMembership {
   email: string;
   department: string;
   campus: string;
-  status: 'Active' | 'Invited' | 'Suspended' | 'Withdrawn' | 'Prospective' | 'Graduated';
+  status: 'Active' | 'Invited' | 'Suspended' | 'Withdrawn' | 'Prospective' | 'Graduated' | 'Inactive';
   history: StatusHistoryItem[];
 }
 
@@ -402,6 +402,7 @@ class DataConnectorService {
   };
 
   private listeners = new Set<() => void>();
+  private syncError: string | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -456,6 +457,15 @@ class DataConnectorService {
 
   public getState(): AppState {
     return this.state;
+  }
+
+  public getSyncError(): string | null {
+    return this.syncError;
+  }
+
+  public clearSyncError() {
+    this.syncError = null;
+    this.notify();
   }
 
   public async trySyncBackend() {
@@ -517,9 +527,13 @@ class DataConnectorService {
       status: 'Active',
     };
     this.state.institutions.unshift(newInst);
-    this.addAudit(`Institution created — ${inst.name}`, 'Success', 'Priya Nair');
+    const auditItem = this.addAudit(`Institution created — ${inst.name}`, 'Success', 'Priya Nair');
     this.save();
-    this.push('/v1/institutions', { code: newInst.code, name: newInst.name });
+    this.push('/v1/institutions', { code: newInst.code, name: newInst.name }, 'POST', () => {
+      this.state.institutions = this.state.institutions.filter((item) => item.id !== newInst.id);
+      this.state.auditLogs = this.state.auditLogs.filter((item) => item.id !== auditItem.id);
+      this.save();
+    });
     return newInst;
   }
 
@@ -572,13 +586,17 @@ class DataConnectorService {
       addedDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
     };
     this.state.people.unshift(newPerson);
-    this.addAudit(`Person registered — ${person.name}`, 'Success', 'Priya Nair');
+    const auditItem = this.addAudit(`Person registered — ${person.name}`, 'Success', 'Priya Nair');
     this.save();
     const [givenName, ...rest] = person.name.trim().split(/\s+/);
     this.push('/v1/persons', {
       givenName: givenName || person.name,
       familyName: rest.join(' ') || givenName || 'Person',
       primaryEmail: person.email,
+    }, 'POST', () => {
+      this.state.people = this.state.people.filter((item) => item.id !== newPerson.id);
+      this.state.auditLogs = this.state.auditLogs.filter((item) => item.id !== auditItem.id);
+      this.save();
     });
     return newPerson;
   }
@@ -639,7 +657,7 @@ class DataConnectorService {
 
     this.state.students.unshift(newStudent);
     this.state.totalStudents += 1;
-    this.addAudit(`Student status → Active (${studentNo})`, 'Success', 'Priya Nair');
+    const auditItem = this.addAudit(`Student status → Active (${studentNo})`, 'Success', 'Priya Nair');
     this.save();
     const institutionId = this.state.institutions.find((item) => /^[0-9a-f-]{36}$/i.test(item.id))?.id;
     if (institutionId) {
@@ -653,12 +671,21 @@ class DataConnectorService {
           familyName: rest.join(' ') || givenName || 'Student',
           primaryEmail: data.email,
         },
+      }, 'POST', () => {
+        this.state.students = this.state.students.filter((item) => item.id !== newStudent.id);
+        this.state.totalStudents = Math.max(0, this.state.totalStudents - 1);
+        if (!existingPerson) {
+          this.state.people = this.state.people.filter((item) => item.id !== newStudent.personId);
+        }
+        this.state.auditLogs = this.state.auditLogs.filter((item) => item.id !== auditItem.id);
+        this.save();
       });
     }
     return newStudent;
   }
 
   public changeStudentStatus(studentId: string, newStatus: StudentMembership['status'], reason?: string) {
+    const previousStudent = this.state.students.find((item) => item.id === studentId);
     this.state.students = this.state.students.map((s) => {
       if (s.id === studentId) {
         const oldStatus = s.status;
@@ -679,7 +706,11 @@ class DataConnectorService {
     });
 
     const student = this.state.students.find((s) => s.id === studentId);
-    this.addAudit(`Student status → ${newStatus} (${student?.studentNo || studentId})`, 'Success', 'Priya Nair');
+    const auditItem = this.addAudit(
+      `Student status → ${newStatus} (${student?.studentNo || studentId})`,
+      'Success',
+      'Priya Nair',
+    );
     this.save();
     if (/^[0-9a-f-]{36}$/i.test(studentId)) {
       const statusMap: Record<string, string> = {
@@ -698,6 +729,15 @@ class DataConnectorService {
           version: 1,
         },
         'PATCH',
+        () => {
+          if (previousStudent) {
+            this.state.students = this.state.students.map((item) =>
+              item.id === studentId ? previousStudent : item,
+            );
+          }
+          this.state.auditLogs = this.state.auditLogs.filter((item) => item.id !== auditItem.id);
+          this.save();
+        },
       );
     }
   }
@@ -707,9 +747,9 @@ class DataConnectorService {
     status: AuditActivity['status'],
     actor: string = 'Priya Nair',
     label?: string,
-  ) {
+  ): AuditActivity {
     const item: AuditActivity = {
-      id: `aud-${Date.now()}`,
+      id: `aud-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       action,
       label: label ?? action,
       status,
@@ -719,6 +759,7 @@ class DataConnectorService {
     };
     this.state.auditLogs = [item, ...this.state.auditLogs];
     this.save();
+    return item;
   }
 
   public completePendingSetup(id: string) {
@@ -739,7 +780,7 @@ class DataConnectorService {
       assignedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
     };
     this.state.userRoles.unshift(newUser);
-    this.addAudit(`Role assigned — ${data.role} (${data.name})`, 'Success', 'Priya Nair');
+    const auditItem = this.addAudit(`Role assigned — ${data.role} (${data.name})`, 'Success', 'Priya Nair');
     this.save();
     const [givenName, ...rest] = data.name.trim().split(/\s+/);
     this.push('/v1/users', {
@@ -747,6 +788,10 @@ class DataConnectorService {
       password: `Invite-${Date.now().toString(36)}`,
       givenName: givenName || data.name,
       familyName: rest.join(' ') || 'User',
+    }, 'POST', () => {
+      this.state.userRoles = this.state.userRoles.filter((item) => item.id !== newUser.id);
+      this.state.auditLogs = this.state.auditLogs.filter((item) => item.id !== auditItem.id);
+      this.save();
     });
     return newUser;
   }
@@ -771,9 +816,14 @@ class DataConnectorService {
     this.save();
   }
 
-  private push(path: string, body: unknown, method = 'POST') {
+  private push(path: string, body: unknown, method = 'POST', rollback?: () => void) {
     if (!loadSession()?.accessToken) return;
-    void api(path, { method, body: JSON.stringify(body) }).catch(() => undefined);
+    void api(path, { method, body: JSON.stringify(body) }).catch((error: unknown) => {
+      rollback?.();
+      const detail = error instanceof Error ? error.message : 'The server could not confirm the update.';
+      this.syncError = `The change was reverted because it could not be saved. ${detail}`;
+      this.notify();
+    });
   }
 
   public setSelectedCampus(campus: string) {

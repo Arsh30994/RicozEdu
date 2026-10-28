@@ -1,5 +1,18 @@
 services:
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   postgres:
+    profiles: ["legacy"]
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: ricozedu
@@ -17,6 +30,7 @@ services:
       retries: 10
 
   redis:
+    profiles: ["legacy"]
     image: redis:7-alpine
     ports:
       - "6379:6379"
@@ -27,6 +41,7 @@ services:
       retries: 10
 
   migrate:
+    profiles: ["legacy"]
     image: node:22-alpine
     working_dir: /app
     volumes:
@@ -53,15 +68,12 @@ services:
       DATABASE_MIGRATE_URL: postgres://ricoz_migrator:ricoz_migrator_dev@postgres:5432/ricozedu
       REDIS_URL: redis://redis:6379
       API_PORT: "4000"
+      MONGODB_URI: mongodb://mongodb:27017/ricozedu
     ports:
       - "4000:4000"
     depends_on:
-      postgres:
+      mongodb:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     command: sh -c "corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install && pnpm --filter @ricozedu/api dev"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/health"]
@@ -86,4 +98,5 @@ services:
     command: sh -c "corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install && pnpm --filter @ricozedu/web dev"
 
 volumes:
+  mongodata:
   pgdata:

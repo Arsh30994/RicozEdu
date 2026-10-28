@@ -4,12 +4,15 @@ import {
   Delete,
   Get,
   HttpStatus,
+  Logger,
   Param,
   Post,
+  Res,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import { ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { PERMISSIONS } from '@ricozedu/shared-auth';
 import { z } from 'zod';
@@ -23,12 +26,13 @@ import {
 } from '../common/request-context';
 import { RequirePermissions } from '../iam/permission.guard';
 import { AiService } from './ai.service';
-import { AiRequestContext } from './ai.types';
+import { AiRequestContext, AiStreamSink } from './ai.types';
 
 const AskSchema = z.object({
-  message: z.string().trim().min(2).max(4000),
+  message: z.string().trim().min(2).max(4000).optional(),
   conversationId: z.string().uuid().optional(),
   agent: z.boolean().optional(),
+  regenerate: z.boolean().optional(),
   academicContext: z
     .object({
       studentMembershipId: z.string().uuid().optional(),
@@ -36,6 +40,21 @@ const AskSchema = z.object({
       courseVersionId: z.string().uuid().optional(),
     })
     .optional(),
+}).superRefine((value, ctx) => {
+  if (value.regenerate && !value.conversationId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['conversationId'],
+      message: 'conversationId is required to regenerate',
+    });
+  }
+  if (!value.regenerate && !value.message) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['message'],
+      message: 'message is required',
+    });
+  }
 });
 
 const VoiceSessionSchema = z.object({
@@ -81,6 +100,8 @@ function parse<T>(schema: z.ZodType<T>, body: unknown): T {
 @ApiTags('ai')
 @Controller('v1/ai')
 export class AiController {
+  private readonly logger = new Logger(AiController.name);
+
   constructor(private readonly ai: AiService) {}
 
   @Post('chat')
@@ -93,7 +114,60 @@ export class AiController {
     @Body() body: unknown,
   ) {
     rejectBodyTenantId(body);
-    return this.ai.chat(this.context(tenantId, user, membershipId, correlationId), parse(AskSchema, body));
+    const input = parse(AskSchema, body);
+    return this.ai.chat(this.context(tenantId, user, membershipId, correlationId), { ...input, message: input.message ?? '' });
+  }
+
+  @Post('chat/stream')
+  @RequirePermissions(PERMISSIONS.AI_USE)
+  async chatStream(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: AuthUser,
+    @MembershipId() membershipId: string,
+    @CorrelationId() correlationId: string,
+    @Body() body: unknown,
+    @Res() res: Response,
+  ) {
+    rejectBodyTenantId(body);
+    const input = parse(AskSchema, body);
+    const controller = new AbortController();
+    res.on('close', () => {
+      if (!res.writableFinished) controller.abort();
+    });
+
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    const sink: AiStreamSink = {
+      send: (event, data) => {
+        if (res.writableEnded || res.destroyed) return;
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      },
+    };
+    try {
+      await this.ai.chatStream(
+        this.context(tenantId, user, membershipId, correlationId),
+        { ...input, message: input.message ?? '' },
+        sink,
+        controller.signal,
+      );
+    } catch (error) {
+      if (!(error instanceof ApiError)) {
+        this.logger.error(
+          `AI stream failed [${correlationId}]`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+      sink.send('error', {
+        message: error instanceof ApiError ? error.message : 'The assistant hit a problem. Please try again.',
+      });
+    } finally {
+      res.end();
+    }
   }
 
   @Post('voice/session')

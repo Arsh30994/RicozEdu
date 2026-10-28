@@ -5,10 +5,13 @@ import { useRouter } from 'next/navigation';
 import { ConsoleSearch } from '../../../components/ConsoleSearch';
 import { PageHeader, UserChip, useConsoleUser } from '../../../components/console-ui';
 import { dataConnector, AppState } from '../../../lib/data-connector';
+import { api, loadSession } from '../../../lib/api';
 
 export default function DashboardPage() {
   const router = useRouter();
   const [state, setState] = useState<AppState>(dataConnector.getState());
+  const [liveStudentCount, setLiveStudentCount] = useState<number | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [showTimezoneModal, setShowTimezoneModal] = useState(false);
   const [timezone, setTimezone] = useState('Asia/Kolkata (IST, UTC+05:30)');
   const user = useConsoleUser();
@@ -20,10 +23,30 @@ export default function DashboardPage() {
     return () => unsub();
   }, []);
 
+  useEffect(() => {
+    const session = loadSession();
+    if (!session?.accessToken || !session.tenantId) return;
+
+    let active = true;
+    void api<{ students: { total: number } }>('/v1/dashboard/summary', { session })
+      .then((summary) => {
+        if (active) {
+          setLiveStudentCount(summary.students.total);
+          setApiError(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) setApiError(error instanceof Error ? error.message : 'Unable to load live dashboard data.');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const totalCampuses = state.institutions.reduce((acc, i) => acc + i.campusesCount, 0);
   const totalDepartments = state.institutions[0]?.departmentsCount ?? state.departments.length;
-  const institutionName = state.institutions[0]?.name ?? 'GTBIT Delhi';
-  const totalStudentsFormatted = state.totalStudents.toLocaleString();
+  const totalStudentsFormatted = (liveStudentCount ?? state.totalStudents).toLocaleString();
   const facultyCount = 86;
   const adminCount = 12;
   const pendingReviewCount = 4;
@@ -51,10 +74,10 @@ export default function DashboardPage() {
   return (
     <section className="dashboard-page">
       <PageHeader title="Dashboard">
-        <span className="institution-badge">{institutionName}</span>
         <ConsoleSearch />
         <UserChip name={user.name} role={user.roleLabel} initials={user.initials} />
       </PageHeader>
+      {apiError ? <p className="error" role="alert">{apiError}</p> : null}
 
       <div className="metrics-grid">
         <article className="metric-card">

@@ -1,4 +1,4 @@
-import { AiService } from './ai.service';
+import { AiService, parseStreamLine } from './ai.service';
 
 describe('AiService evidence safeguards', () => {
   const service = new AiService({} as never, {} as never, {} as never, {} as never);
@@ -229,5 +229,123 @@ describe('AiService evidence safeguards', () => {
     };
     expect(learnerInput.typicalMinutesPerTopic).toBe(30);
     expect(query.mock.calls[1]?.[0]).toContain('INSERT INTO ai_study_artifacts');
+  });
+});
+
+describe('AiService streaming and chat memory', () => {
+  const ctx = { tenantId: 't', userId: 'u', membershipId: 'm', authorizationVersion: 1, correlationId: 'c' };
+  const sse = (chunks: string[]) => new Response(new ReadableStream({
+    start(controller) {
+      const encoder = new TextEncoder();
+      for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+      controller.close();
+    },
+  }), { status: 200 });
+  const delta = (content: string) => `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    delete process.env.AI_PROVIDER;
+    delete process.env.GROQ_API_KEY;
+  });
+
+  it('parses provider SSE lines and ignores comments or malformed frames', () => {
+    expect(parseStreamLine('data: {"choices":[{"delta":{"content":"Hi"}}]}')).toEqual({ delta: 'Hi' });
+    expect(parseStreamLine('data: [DONE]')).toEqual({ done: true });
+    expect(parseStreamLine('data: {"choices":[{"delta":{}}]}')).toBeNull();
+    expect(parseStreamLine(': keep-alive')).toBeNull();
+    expect(parseStreamLine('data: {broken')).toBeNull();
+  });
+
+  it('keeps bounded recent history starting with a user turn and reuses recent sources', () => {
+    const service = new AiService({} as never, {} as never, {} as never, {} as never);
+    const source = { documentId: 'd', title: 'Guide', chunkId: 'c1', ordinal: 0, excerpt: 'x' };
+    const shaped = (service as unknown as {
+      shapeHistory(rows: unknown[]): { history: Array<{ role: string }>; previousSources: unknown[] };
+    }).shapeHistory([
+      { role: 'assistant', content: 'orphan reply', sources_json: [] },
+      { role: 'user', content: 'What is the attendance rule?', sources_json: [] },
+      { role: 'assistant', content: 'Students need 75%.', sources_json: [source] },
+    ]);
+    expect(shaped.history.map((turn) => turn.role)).toEqual(['user', 'assistant']);
+    expect(shaped.previousSources).toEqual([source]);
+    const emptyLatestSources = (service as unknown as {
+      shapeHistory(rows: unknown[]): { previousSources: unknown[] };
+    }).shapeHistory([
+      { role: 'assistant', content: 'Earlier answer', sources_json: [source] },
+      { role: 'user', content: 'New question', sources_json: [] },
+      { role: 'assistant', content: 'No verified sources', sources_json: [] },
+    ]);
+    expect(emptyLatestSources.previousSources).toEqual([]);
+  });
+
+  it('streams provider deltas with prior turns and saves the completed answer', async () => {
+    process.env.AI_PROVIDER = 'groq';
+    process.env.GROQ_API_KEY = 'test-groq-key';
+    const fetch = jest.spyOn(global, 'fetch').mockResolvedValue(sse([
+      delta('Hello'),
+      'data: {"choices":[{"delta":{"con',
+      'tent":" world"}}]}\n\n',
+      'data: [DONE]\n\n',
+    ]));
+    const service = new AiService({} as never, {} as never, {} as never, {} as never);
+    const internals = service as unknown as Record<string, unknown>;
+    const source = { documentId: 'd', title: 'Guide', chunkId: 'c1', ordinal: 0, excerpt: 'Approved text.' };
+    internals.prepareTurn = jest.fn().mockResolvedValue({
+      conversationId: 'conv-1',
+      question: 'Explain that simpler',
+      history: [{ role: 'user', content: 'What is X?' }, { role: 'assistant', content: 'X is Y.' }],
+      sources: [source],
+      tools: [],
+    });
+    const insertMessage = jest.fn().mockResolvedValue('msg-1');
+    internals.insertMessage = insertMessage;
+
+    const events: Array<[string, unknown]> = [];
+    await service.chatStream(ctx, { message: 'Explain that simpler' }, {
+      send: (event, data) => events.push([event, data]),
+    }, new AbortController().signal);
+
+    expect(events.map(([event]) => event)).toEqual(['meta', 'delta', 'delta', 'done']);
+    expect(insertMessage).toHaveBeenCalledWith(ctx, 'conv-1', 'assistant', 'Hello world', [source], []);
+    const body = JSON.parse(String((fetch.mock.calls[0]?.[1] as RequestInit).body)) as {
+      stream: boolean;
+      messages: Array<{ role: string; content: string }>;
+    };
+    expect(body.stream).toBe(true);
+    expect(fetch.mock.calls[0]?.[1]?.headers).toEqual(expect.objectContaining({ Authorization: 'Bearer test-groq-key' }));
+    expect(body.messages.map((message) => message.role)).toEqual(['system', 'user', 'assistant', 'user']);
+    expect(body.messages[1]?.content).toBe('What is X?');
+    expect(body.messages[3]?.content).toContain('Approved text.');
+  });
+
+  it('saves a partial answer when generation is aborted by the client', async () => {
+    process.env.AI_PROVIDER = 'groq';
+    process.env.GROQ_API_KEY = 'test-groq-key';
+    const abort = new AbortController();
+    jest.spyOn(global, 'fetch').mockResolvedValue(new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(delta('Partial')));
+      },
+    }), { status: 200 }));
+    const service = new AiService({} as never, {} as never, {} as never, {} as never);
+    const internals = service as unknown as Record<string, unknown>;
+    const source = { documentId: 'd', title: 'Guide', chunkId: 'c1', ordinal: 0, excerpt: 'E' };
+    internals.prepareTurn = jest.fn().mockResolvedValue({
+      conversationId: 'conv-1', question: 'Q?', history: [], sources: [source], tools: [],
+    });
+    const insertMessage = jest.fn().mockResolvedValue('msg-2');
+    internals.insertMessage = insertMessage;
+
+    const events: string[] = [];
+    await service.chatStream(ctx, { message: 'Q?' }, {
+      send: (event) => {
+        events.push(event);
+        if (event === 'delta') abort.abort();
+      },
+    }, abort.signal);
+
+    expect(insertMessage).toHaveBeenCalledWith(ctx, 'conv-1', 'assistant', 'Partial', [source], []);
+    expect(events).not.toContain('done');
   });
 });

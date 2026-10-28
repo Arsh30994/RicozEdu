@@ -3,9 +3,11 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, clearSession, loadSession } from '../lib/api';
 import { notifySessionChange, ThemeProvider, ThemeSwitch, useConsoleUser, type ConsoleTheme } from './console-ui';
+import { CommandPalette } from './CommandPalette';
+import { dataConnector } from '../lib/data-connector';
 
 interface NavItem {
   href: string;
@@ -40,11 +42,85 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { email, name, roleLabel } = useConsoleUser();
   const [theme, setTheme] = useState<ConsoleTheme>('dark');
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const finishRouteTransition = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(THEME_KEY);
     if (saved === 'light' || saved === 'dark') setTheme(saved);
   }, []);
+
+  useEffect(() => {
+    finishRouteTransition.current?.();
+    finishRouteTransition.current = null;
+  }, [pathname]);
+
+  useEffect(() => {
+    const updateSyncError = () => setSyncError(dataConnector.getSyncError());
+    const unsubscribe = dataConnector.subscribe(updateSyncError);
+    updateSyncError();
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    function onNavigate(event: MouseEvent) {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest('a');
+      if (
+        !anchor ||
+        anchor.target ||
+        anchor.hasAttribute('download') ||
+        anchor.origin !== window.location.origin ||
+        anchor.pathname === pathname
+      ) {
+        return;
+      }
+
+      const transitionDocument = document as Document & {
+        startViewTransition?: (callback: () => void | Promise<void>) => { finished: Promise<void> };
+      };
+      const startViewTransition = transitionDocument.startViewTransition;
+      if (!startViewTransition) return;
+
+      event.preventDefault();
+      const destination = `${anchor.pathname}${anchor.search}${anchor.hash}`;
+      let timeoutId = 0;
+      const routeChanged = new Promise<void>((resolve) => {
+        const finish = () => {
+          window.clearTimeout(timeoutId);
+          if (finishRouteTransition.current === finish) finishRouteTransition.current = null;
+          resolve();
+        };
+        finishRouteTransition.current = finish;
+        timeoutId = window.setTimeout(finish, 1200);
+      });
+
+      try {
+        startViewTransition.call(transitionDocument, async () => {
+          router.push(destination);
+          await routeChanged;
+        });
+      } catch {
+        finishRouteTransition.current?.();
+        router.push(destination);
+      }
+    }
+
+    document.addEventListener('click', onNavigate, true);
+    return () => document.removeEventListener('click', onNavigate, true);
+  }, [pathname, router]);
 
   function applyTheme(next: ConsoleTheme) {
     setTheme(next);
@@ -125,6 +201,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="sidebar-footer">
           <div className="sidebar-footer-user">{name}</div>
           <div className="sidebar-footer-role">{roleLabel}</div>
+          <CommandPalette theme={theme} onThemeChange={applyTheme} />
           {email ? (
             <button className="sidebar-auth-action" type="button" onClick={handleSignOut}>
               Log out
@@ -139,6 +216,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="main-wrapper">
         <div className="page-container">{children}</div>
       </div>
+      {syncError ? (
+        <div className="sync-error-toast" role="alert">
+          <span>{syncError}</span>
+          <button type="button" onClick={() => dataConnector.clearSyncError()}>
+            Dismiss
+          </button>
+        </div>
+      ) : null}
     </div>
     </ThemeProvider>
   );

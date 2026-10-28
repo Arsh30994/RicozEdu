@@ -4,9 +4,54 @@ import { useEffect, useState } from 'react';
 import { PageHeader, StatusPill } from '../../../components/console-ui';
 import { dataConnector, AppState } from '../../../lib/data-connector';
 import { matchesQuery } from '../../../lib/search';
+import { api, createIdempotencyKey, loadSession } from '../../../lib/api';
+
+type ApiStudent = {
+  id: string;
+  studentNo: string;
+  name: string;
+  email: string;
+  department: string;
+  campus: string;
+  status: 'prospective' | 'active' | 'inactive' | 'graduated' | 'withdrawn' | 'suspended';
+  history: Array<{ status: ApiStudent['status']; reason: string; actorUserId: string; changedAt: string }>;
+};
+
+function toStudentMembership(student: ApiStudent): AppState['students'][number] {
+  const statusLabels: Record<ApiStudent['status'], AppState['students'][number]['status']> = {
+    prospective: 'Prospective',
+    active: 'Active',
+    inactive: 'Inactive',
+    graduated: 'Graduated',
+    withdrawn: 'Withdrawn',
+    suspended: 'Suspended',
+  };
+  const statusLabel = statusLabels[student.status];
+  return {
+    id: student.id,
+    studentNo: student.studentNo,
+    personId: '',
+    name: student.name,
+    email: student.email,
+    department: student.department,
+    campus: student.campus,
+    status: statusLabel,
+    history: student.history.map((item, index) => ({
+      id: `${student.id}-history-${index}`,
+      transition: `Status changed to ${item.status}`,
+      timestamp: `${new Date(item.changedAt).toLocaleDateString('en-GB')} · by staff`,
+      author: 'Staff',
+      reason: item.reason || undefined,
+    })),
+  };
+}
 
 export default function StudentsPage() {
   const [state, setState] = useState<AppState>(dataConnector.getState());
+  const [liveMode, setLiveMode] = useState(false);
+  const [liveStudents, setLiveStudents] = useState<AppState['students']>([]);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('stu-1');
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [pageQuery, setPageQuery] = useState('');
@@ -24,29 +69,82 @@ export default function StudentsPage() {
       setState({ ...dataConnector.getState() });
     });
     setPageQuery(new URLSearchParams(window.location.search).get('q') ?? '');
+    const session = loadSession();
+    if (session?.accessToken && session.tenantId) {
+      setLiveMode(true);
+      const controller = new AbortController();
+      void api<{ items: ApiStudent[] }>('/v1/students?page=1&limit=100', { session, signal: controller.signal })
+        .then((result) => {
+          setLiveStudents(result.items.map(toStudentMembership));
+          setApiError(null);
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) return;
+          setLiveStudents([]);
+          setApiError(error instanceof Error ? error.message : 'Unable to load student memberships.');
+        });
+      return () => {
+        controller.abort();
+        unsub();
+      };
+    }
     return () => unsub();
   }, []);
 
-  const visibleStudents = state.students.filter((student) =>
+  const students = liveMode ? liveStudents : state.students;
+  const visibleStudents = students.filter((student) =>
     matchesQuery(pageQuery, student.name, student.email, student.studentNo, student.status, student.campus, student.department),
   );
   const selectedStudent =
     visibleStudents.find((s) => s.id === selectedStudentId) || visibleStudents[0];
-  const listedDepartments = [...new Set(state.students.map((student) => student.department).filter(Boolean))];
+  const listedDepartments = [...new Set(students.map((student) => student.department).filter(Boolean))];
   const listDepartment = listedDepartments.length === 1 ? listedDepartments[0] : state.departments[0]?.name;
 
-  function handleConvertSubmit(e: React.FormEvent) {
+  async function handleConvertSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!studentName.trim() || !studentEmail.trim()) return;
 
-    dataConnector.convertPersonToStudent({
-      personId: selectedPersonId || undefined,
-      name: studentName.trim(),
-      email: studentEmail.trim(),
-      department: studentDept,
-      campus: studentCampus,
-      studentNo: studentNoInput.trim() || undefined,
-    });
+    if (liveMode) {
+      const session = loadSession();
+      if (!session) {
+        setApiError('Your session has expired. Sign in again to enroll a student.');
+        return;
+      }
+      setSaving(true);
+      setApiError(null);
+      try {
+        const student = await api<ApiStudent>('/v1/students', {
+          method: 'POST',
+          session,
+          body: JSON.stringify({
+            studentNo: studentNoInput.trim() || `STU-${createIdempotencyKey().slice(0, 8).toUpperCase()}`,
+            fullName: studentName.trim(),
+            email: studentEmail.trim(),
+            department: studentDept,
+            campus: studentCampus,
+            status: 'active',
+          }),
+        });
+        const mappedStudent = toStudentMembership(student);
+        setLiveStudents((current) => [mappedStudent, ...current]);
+        setSelectedStudentId(mappedStudent.id);
+        setShowConvertModal(false);
+      } catch (error) {
+        setApiError(error instanceof Error ? error.message : 'Unable to enroll this student.');
+        return;
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      dataConnector.convertPersonToStudent({
+        personId: selectedPersonId || undefined,
+        name: studentName.trim(),
+        email: studentEmail.trim(),
+        department: studentDept,
+        campus: studentCampus,
+        studentNo: studentNoInput.trim() || undefined,
+      });
+    }
 
     setStudentName('');
     setStudentEmail('');
@@ -76,6 +174,7 @@ export default function StudentsPage() {
           + Convert person to student
         </button>
       </PageHeader>
+      {apiError ? <p className="error" role="alert">{apiError}</p> : null}
 
       {/* Students Table Card */}
       <div className="card">
@@ -115,7 +214,7 @@ export default function StudentsPage() {
               {visibleStudents.length === 0 ? (
                 <tr>
                   <td colSpan={4} style={{ textAlign: 'center', color: 'var(--ink-secondary)', padding: '1.5rem' }}>
-                    No students match “{pageQuery}”.
+                    {liveMode && !apiError ? 'Loading student records…' : `No students match “${pageQuery}”.`}
                   </td>
                 </tr>
               ) : null}
@@ -245,8 +344,8 @@ export default function StudentsPage() {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
-                  Enroll Student
+                <button type="submit" className="btn-primary" disabled={saving}>
+                  {saving ? 'Enrolling…' : 'Enroll Student'}
                 </button>
               </div>
             </form>

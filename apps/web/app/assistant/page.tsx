@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import type { SessionStatus, WebSession as WebSessionInstance } from '@omnidim-ai/client';
-import { api, loadSession } from '../../lib/api';
+import { Markdown } from '../../components/Markdown';
+import { api, apiStream, loadSession } from '../../lib/api';
 
 type Source = { documentId: string; title: string; chunkId: string; ordinal: number; excerpt: string };
 type Tool = { name: string; status: 'completed' | 'skipped' | 'failed'; summary: string };
@@ -14,6 +15,8 @@ type ChatMessage = {
   sources?: Source[];
   tools?: Tool[];
   mode?: 'grounded' | 'evidence-only';
+  streaming?: boolean;
+  failed?: boolean;
 };
 type Conversation = { id: string; title: string; updated_at: string };
 type DocumentInfo = { id: string; title: string; source_type: string; status: string; created_at: string; chunkCount: number };
@@ -62,6 +65,11 @@ export default function AssistantPage() {
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [hasSession, setHasSession] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const streamRequestId = useRef(0);
+  const messageList = useRef<HTMLDivElement | null>(null);
+  const stickToBottom = useRef(true);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -99,6 +107,8 @@ export default function AssistantPage() {
       }
     })();
     return () => {
+      streamRequestId.current += 1;
+      abortRef.current?.abort();
       recognition.current?.abort();
       voiceSession.current?.stop();
       window.speechSynthesis?.cancel();
@@ -106,51 +116,124 @@ export default function AssistantPage() {
     };
   }, []);
 
+  function rememberConversation(id: string) {
+    const session = loadSession();
+    if (session) {
+      window.localStorage.setItem(conversationStorageKey(session.email, session.tenantId), id);
+    }
+  }
+
+  async function streamAnswer(
+    payload: { message?: string; regenerate?: boolean },
+    optimisticUserId?: string,
+    restoreText?: string,
+    replaceLastAssistant = false,
+  ) {
+    setSending(true);
+    setError(null);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const requestId = ++streamRequestId.current;
+    const streamId = `stream-${Date.now()}`;
+    let started = false;
+    let completed = false;
+    try {
+      for await (const { event, data } of apiStream(
+        '/v1/ai/chat/stream',
+        { ...payload, conversationId, agent },
+        controller.signal,
+      )) {
+        if (requestId !== streamRequestId.current) break;
+        if (event === 'meta') {
+          const meta = data as { conversationId: string; sources: Source[]; tools: Tool[] };
+          setConversationId(meta.conversationId);
+          rememberConversation(meta.conversationId);
+          setMessages((current) => [
+            ...(replaceLastAssistant && current[current.length - 1]?.role === 'assistant'
+              ? current.slice(0, -1)
+              : current),
+            { id: streamId, role: 'assistant', content: '', streaming: true, sources: meta.sources, tools: meta.tools },
+          ]);
+          started = true;
+        } else if (event === 'delta') {
+          const { text } = data as { text: string };
+          setMessages((current) => current.map((item) => (item.id === streamId ? { ...item, content: item.content + text } : item)));
+        } else if (event === 'done') {
+          const done = data as { messageId: string; mode: 'grounded' | 'evidence-only' };
+          setMessages((current) => current.map((item) => (item.id === streamId
+            ? { ...item, id: done.messageId, mode: done.mode, streaming: false }
+            : item)));
+          completed = true;
+        } else if (event === 'error') {
+          throw new Error((data as { message?: string }).message ?? 'Something went wrong. Please try again.');
+        }
+      }
+    } catch (reason) {
+      if (requestId === streamRequestId.current && !controller.signal.aborted) {
+        setError(readError(reason));
+        if (started && !completed) {
+          setMessages((current) => current.map((item) => (item.id === streamId ? { ...item, failed: true } : item)));
+        }
+      }
+      if (requestId === streamRequestId.current && !started && optimisticUserId && !controller.signal.aborted) {
+        setMessages((current) => current.filter((item) => item.id !== optimisticUserId));
+        if (restoreText) setQuestion(restoreText);
+      }
+    } finally {
+      if (requestId === streamRequestId.current) {
+        setMessages((current) => current
+          .filter((item) => !(item.id === streamId && !item.content))
+          .map((item) => (item.id === streamId ? { ...item, streaming: false } : item)));
+        if (abortRef.current === controller) abortRef.current = null;
+        setSending(false);
+        void refreshSidebar().catch((reason: unknown) => setError(readError(reason)));
+      }
+    }
+  }
+
   async function ask(event?: FormEvent, nextQuestion = question) {
     event?.preventDefault();
     const message = nextQuestion.trim();
     if (!message || sending) return;
-    setSending(true);
-    setError(null);
     const optimisticMessageId = `local-${Date.now()}`;
+    stickToBottom.current = true;
     setMessages((current) => [...current, { id: optimisticMessageId, role: 'user', content: message }]);
     setQuestion('');
     setSpeechPreview('');
+    await streamAnswer({ message }, optimisticMessageId, message);
+  }
+
+  function stopGenerating() {
+    abortRef.current?.abort();
+  }
+
+  async function regenerate() {
+    if (sending || !conversationId) return;
+    stickToBottom.current = true;
+    await streamAnswer({ regenerate: true }, undefined, undefined, true);
+  }
+
+  async function copyMessage(id: string, text: string) {
     try {
-      const answer = await api<{
-        conversationId: string;
-        messageId: string;
-        answer: string;
-        mode: 'grounded' | 'evidence-only';
-        sources: Source[];
-        tools: Tool[];
-      }>('/v1/ai/chat', {
-        method: 'POST',
-        body: JSON.stringify({ message, conversationId, agent }),
-      });
-      setConversationId(answer.conversationId);
-      const session = loadSession();
-      if (session) {
-        window.localStorage.setItem(conversationStorageKey(session.email, session.tenantId), answer.conversationId);
-      }
-      setMessages((current) => [...current, {
-        id: answer.messageId,
-        role: 'assistant',
-        content: answer.answer,
-        mode: answer.mode,
-        sources: answer.sources,
-        tools: answer.tools,
-      }]);
-      void refreshSidebar().catch((reason: unknown) => setError(readError(reason)));
-    } catch (reason) {
-      setError(readError(reason));
-      setMessages((current) => current.filter((item) => item.id !== optimisticMessageId));
-    } finally {
-      setSending(false);
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      window.setTimeout(() => setCopiedId((current) => (current === id ? null : current)), 1500);
+    } catch {
+      setError('Copying is not available in this browser.');
     }
   }
 
+  useEffect(() => {
+    const list = messageList.current;
+    if (list && stickToBottom.current) list.scrollTop = list.scrollHeight;
+  }, [messages]);
+
   async function openConversation(id: string) {
+    streamRequestId.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setSending(false);
+    stickToBottom.current = true;
     setError(null);
     try {
       const result = await api<{ id: string; messages: Array<{ id: string; role: 'user' | 'assistant'; content: string; sources_json: Source[]; tool_trace_json: Tool[] }> }>(`/v1/ai/conversations/${id}`);
@@ -463,6 +546,10 @@ export default function AssistantPage() {
   }
 
   function startNewConversation() {
+    streamRequestId.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setSending(false);
     voiceSession.current?.stop();
     voiceSession.current = null;
     setVoiceStatus('idle');
@@ -539,7 +626,15 @@ export default function AssistantPage() {
           </label>
         </header>
 
-        <div className="ai-message-list" aria-live="polite">
+        <div
+          className="ai-message-list"
+          aria-live="polite"
+          ref={messageList}
+          onScroll={(event) => {
+            const el = event.currentTarget;
+            stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+          }}
+        >
           {!hasSession ? (
             <div className="ai-auth-notice" role="status">
               <strong>Sign in to use Ricoz AI</strong>
@@ -553,13 +648,19 @@ export default function AssistantPage() {
               <h2>I’m your study helper. Ask me whatever you want.</h2>
               <p>Ask about what you’re learning. I can explain and summarize approved course material, help you revise, or plan a study session. For institution-specific answers, I rely on approved sources.</p>
             </div>
-          ) : messages.map((message) => (
+          ) : messages.map((message, messageIndex) => (
             <article key={message.id} className={`ai-message ${message.role}`}>
               <div className="ai-message-label">{message.role === 'assistant' ? 'Ricoz AI' : 'You'}</div>
-              <p>{message.content}</p>
-              {message.role === 'assistant' ? (
+              {message.role === 'assistant' ? <Markdown text={message.content} /> : <p>{message.content}</p>}
+              {message.streaming ? <span className="ai-cursor" aria-hidden="true" /> : null}
+              {message.failed ? <span className="ai-message-incomplete" role="status">This response may be incomplete.</span> : null}
+              {message.role === 'assistant' && !message.streaming && !message.failed ? (
                 <div className="ai-message-actions">
+                  <button type="button" onClick={() => void copyMessage(message.id, message.content)}>{copiedId === message.id ? 'Copied' : 'Copy'}</button>
                   <button type="button" onClick={() => speak(message.content)}>Listen</button>
+                  {messageIndex === messages.length - 1 && conversationId ? (
+                    <button type="button" onClick={() => void regenerate()} disabled={sending}>Regenerate</button>
+                  ) : null}
                   {message.mode === 'evidence-only' ? <span className="evidence-badge">Evidence-only</span> : <span className="grounded-badge">Grounded answer</span>}
                 </div>
               ) : null}
@@ -581,11 +682,23 @@ export default function AssistantPage() {
               <p>{voiceLiveTranscript.text}</p>
             </article>
           ) : null}
-          {sending ? <div className="ai-thinking"><span />Ricoz AI is checking approved evidence…</div> : null}
+          {sending && !messages.some((item) => item.streaming) ? <div className="ai-thinking"><span />Ricoz AI is checking approved evidence…</div> : null}
         </div>
 
         <form className="ai-composer" onSubmit={(event) => void ask(event)}>
-          <textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask about a course, policy, or approved document…" maxLength={4000} rows={3} />
+          <textarea
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                void ask();
+              }
+            }}
+            placeholder="Ask about a course, policy, or approved document… (Enter to send, Shift+Enter for a new line)"
+            maxLength={4000}
+            rows={3}
+          />
           <div className="ai-composer-actions">
             <button
               type="button"
@@ -599,7 +712,11 @@ export default function AssistantPage() {
             <button type="button" className={recording ? 'voice-recording' : 'voice-button'} onClick={() => void toggleRecording()} aria-pressed={recording}>
               {recording ? '■ Stop recording' : '◉ Ask by voice'}
             </button>
-            <button type="submit" className="btn-primary" disabled={!hasSession || sending || !question.trim()}>{sending ? 'Thinking…' : 'Send question'}</button>
+            {sending ? (
+              <button type="button" className="btn-secondary" onClick={stopGenerating}>■ Stop</button>
+            ) : (
+              <button type="submit" className="btn-primary" disabled={!hasSession || !question.trim()}>Send question</button>
+            )}
           </div>
         </form>
         {error ? <p className="error ai-error" role="alert">{error}</p> : null}

@@ -1,25 +1,34 @@
 # RicozEdu
 
-Multi-tenant education operating system (Phase 0 foundation).
+Multi-tenant education operating system.
 
 ## Stack
 
-- NestJS API (`apps/api`)
-- Next.js / React Native placeholders (pending)
-- PostgreSQL + FORCE RLS, Redis
+- Next.js web application (`apps/web`)
+- Express API with MongoDB (`apps/api`)
+- PostgreSQL/Redis services and NestJS modules remain available under the `legacy` Compose profile while remaining workflows are migrated.
 - pnpm + Turborepo monorepo
 
 ## Quick start
 
 ```bash
 cp .env.example .env
-docker compose up -d postgres redis
-npx pnpm install
-npx pnpm migrate
-npx pnpm --filter @ricozedu/api dev
+pnpm install
+docker compose up -d mongodb
+pnpm dev
 ```
 
-Bootstrap a tenant with `POST /v1/tenants` and header `X-Bootstrap-Token`.
+The web app is available at `http://localhost:3000`; the Express API is at `http://localhost:4000`.
+Create the first workspace and administrator using `POST /v1/tenants` with the `X-Bootstrap-Token`
+header. The JSON body requires `name`, `slug`, `adminName`, `adminEmail`, and `adminPassword`.
+
+The migrated API includes bootstrap, login, refresh/logout, tenant membership and authorization,
+student listing/creation/status transitions, tenant-scoped dashboard counts, request validation,
+rate limits, correlation IDs, and health checks. Student and dashboard endpoints require a bearer
+access token plus `X-Tenant-Id`; management operations require an owner, admin, or faculty membership.
+
+To run the remaining PostgreSQL-backed legacy API and migrations during the staged migration, use
+`docker compose --profile legacy up` and the `dev:legacy`, `start:legacy`, or migration scripts.
 
 ## AI assistant and voice agent
 
