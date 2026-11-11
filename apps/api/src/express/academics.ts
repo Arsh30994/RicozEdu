@@ -114,6 +114,17 @@ academicsRouter.post('/classes', requirePermissions('academics.manage'), asyncRo
   response.status(201).json(serialize(group));
 }));
 
+academicsRouter.get('/classes/:id/roster', asyncRoute(async (request, response) => {
+  const req = request as ApiRequest;
+  const group = await loadClass(req, request.params.id);
+  if (context(req).role === 'student') {
+    const ownStudent = await Student.findOne({ tenantId: context(req).tenantId, userId: actor(req), status: 'active' }).select('_id studentNo fullName email');
+    return response.json({ items: ownStudent ? [ownStudent] : [] });
+  }
+  const students = await Student.find({ _id: { $in: group.studentIds }, tenantId: context(req).tenantId, status: 'active' }).select('studentNo fullName email').sort({ fullName: 1 });
+  response.json({ items: students.map(student => ({ id: student._id.toString(), studentNo: student.studentNo, name: student.fullName, email: student.email ?? '' })) });
+}));
+
 academicsRouter.get('/classes/:id/timetable', asyncRoute(async (request, response) => {
   const req = request as ApiRequest;
   const group = await loadClass(req, request.params.id);
