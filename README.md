@@ -166,13 +166,26 @@ Request bodies cannot choose a tenant. The server derives tenant context from th
 
 ## Authentication and tenancy
 
-1. A user signs in with email and password.
+1. A user signs in with an email and a password of at least eight characters, or with configured Google sign-in.
 2. The API returns a short-lived access token and rotating refresh token.
 3. The client asks for active memberships using `GET /v1/me/memberships`.
 4. The client selects one workspace and includes its ID in `X-Tenant-Id`.
 5. Middleware verifies the token, confirms active tenant membership, resolves the role, and scopes all student queries to that tenant.
 
 Refresh-token reuse is detected: when a revoked token is reused, the token family is revoked and the user's authorization version is increased, invalidating existing access tokens.
+
+### Google sign-in
+
+Google sign-in is ready in the application but intentionally stays disabled until an administrator configures a Google OAuth 2.0 web client. In Google Cloud, add the exact callback URL below to the client’s **Authorized redirect URIs**, then set the values only in the environment (never in a `NEXT_PUBLIC_` variable or source control):
+
+```dotenv
+WEB_APP_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=your-google-oauth-client-id
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:4000/v1/auth/google/callback
+```
+
+For a deployed environment, use HTTPS URLs for both the web app and callback, register those exact production URLs with Google, and restart the API. Google accounts must have a verified email address. The first Google sign-in creates an account; an institution administrator must still assign that account to an active RicozEdu workspace before it can access tenant data.
 
 ## AI learning workspace
 

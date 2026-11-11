@@ -16,6 +16,10 @@ const userSchema = new Schema(
   {
     email: { type: String, required: true, lowercase: true, trim: true },
     fullName: { type: String, required: true, trim: true, maxlength: 120 },
+    // Leave this field absent until an account is linked. A sparse unique index
+    // treats an explicit null as an indexed value, which would otherwise allow
+    // only one password-only user in the collection.
+    googleSubject: { type: String, trim: true, select: false },
     passwordHash: { type: String, required: true, select: false },
     status: { type: String, enum: ['active', 'disabled'], default: 'active', required: true },
     authorizationVersion: { type: Number, default: 0, required: true },
@@ -23,6 +27,7 @@ const userSchema = new Schema(
   { timestamps: true },
 );
 userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ googleSubject: 1 }, { unique: true, sparse: true });
 
 const membershipSchema = new Schema(
   {
@@ -48,6 +53,17 @@ const refreshTokenSchema = new Schema(
   { timestamps: true },
 );
 refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+const oauthLoginCodeSchema = new Schema(
+  {
+    userId: { type: Schema.Types.ObjectId, ref: 'RicozUser', required: true },
+    codeHash: { type: String, required: true, unique: true },
+    expiresAt: { type: Date, required: true },
+    consumedAt: { type: Date, default: null },
+  },
+  { timestamps: true },
+);
+oauthLoginCodeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const statusHistorySchema = new Schema(
   {
@@ -230,6 +246,7 @@ export const Tenant = models.RicozTenant ?? model('RicozTenant', tenantSchema);
 export const User = models.RicozUser ?? model('RicozUser', userSchema);
 export const Membership = models.RicozMembership ?? model('RicozMembership', membershipSchema);
 export const RefreshToken = models.RicozRefreshToken ?? model('RicozRefreshToken', refreshTokenSchema);
+export const OAuthLoginCode = models.RicozOAuthLoginCode ?? model('RicozOAuthLoginCode', oauthLoginCodeSchema);
 export const Student = models.RicozStudent ?? model('RicozStudent', studentSchema);
 export const AuditEvent = models.RicozAuditEvent ?? model('RicozAuditEvent', auditEventSchema);
 export const Campus = models.RicozCampus ?? model('RicozCampus', campusSchema);

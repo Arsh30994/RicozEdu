@@ -9,7 +9,7 @@ export const ErrorEnvelopeSchema = z.object({
 
 export const LoginRequestSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(12),
+  password: z.string().min(8),
 });
 
 export const RefreshRequestSchema = z.object({
@@ -20,7 +20,7 @@ export const CreateTenantSchema = z.object({
   slug: z.string().min(2).max(64).regex(/^[a-z0-9-]+$/),
   name: z.string().min(2).max(200),
   adminEmail: z.string().email(),
-  adminPassword: z.string().min(12),
+  adminPassword: z.string().min(8),
   adminGivenName: z.string().min(1).max(100),
   adminFamilyName: z.string().min(1).max(100),
 });
@@ -66,7 +66,7 @@ export const PatchStudentStatusSchema = z.object({
 
 export const CreateUserSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(12),
+  password: z.string().min(8),
   givenName: z.string().min(1).max(100),
   familyName: z.string().min(1).max(100),
   institutionId: z.string().uuid().optional(),

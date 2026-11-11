@@ -7,10 +7,16 @@ import { PageHeader, UserChip, useConsoleUser } from '../../../components/consol
 import { dataConnector, AppState } from '../../../lib/data-connector';
 import { api, loadSession } from '../../../lib/api';
 
+type DashboardSummary = {
+  students: { total: number; createdThisMonth: number };
+  organization: { campuses: number; departments: number };
+  people: { faculty: number; administrators: number; pendingReview: number };
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [state, setState] = useState<AppState>(dataConnector.getState());
-  const [liveStudentCount, setLiveStudentCount] = useState<number | null>(null);
+  const [liveSummary, setLiveSummary] = useState<DashboardSummary | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [showTimezoneModal, setShowTimezoneModal] = useState(false);
   const [timezone, setTimezone] = useState('Asia/Kolkata (IST, UTC+05:30)');
@@ -28,10 +34,10 @@ export default function DashboardPage() {
     if (!session?.accessToken || !session.tenantId) return;
 
     let active = true;
-    void api<{ students: { total: number } }>('/v1/dashboard/summary', { session })
+    void api<DashboardSummary>('/v1/dashboard/summary', { session })
       .then((summary) => {
         if (active) {
-          setLiveStudentCount(summary.students.total);
+          setLiveSummary(summary);
           setApiError(null);
         }
       })
@@ -44,12 +50,13 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const totalCampuses = state.institutions.reduce((acc, i) => acc + i.campusesCount, 0);
-  const totalDepartments = state.institutions[0]?.departmentsCount ?? state.departments.length;
-  const totalStudentsFormatted = (liveStudentCount ?? state.totalStudents).toLocaleString();
-  const facultyCount = 86;
-  const adminCount = 12;
-  const pendingReviewCount = 4;
+  const isDemoMode = liveSummary === null;
+  const totalCampuses = liveSummary?.organization.campuses ?? state.institutions.reduce((acc, i) => acc + i.campusesCount, 0);
+  const totalDepartments = liveSummary?.organization.departments ?? state.institutions[0]?.departmentsCount ?? state.departments.length;
+  const totalStudentsFormatted = (liveSummary?.students.total ?? state.totalStudents).toLocaleString();
+  const facultyCount = liveSummary?.people.faculty ?? 86;
+  const adminCount = liveSummary?.people.administrators ?? 12;
+  const pendingReviewCount = liveSummary?.people.pendingReview ?? 4;
   const unassignedDepartments = state.departments.filter((department) => {
     const admin = department.admin?.trim();
     return !admin || /^(unassigned|—|-|–)$/i.test(admin);
@@ -78,6 +85,11 @@ export default function DashboardPage() {
         <UserChip name={user.name} role={user.roleLabel} initials={user.initials} />
       </PageHeader>
       {apiError ? <p className="error" role="alert">{apiError}</p> : null}
+      {isDemoMode ? (
+        <p className="demo-notice" role="status">
+          Demo mode — these figures are sample data. Sign in to a configured workspace to view live MongoDB data.
+        </p>
+      ) : null}
 
       <div className="metrics-grid">
         <article className="metric-card">
@@ -90,7 +102,7 @@ export default function DashboardPage() {
           <span className="metric-icon" aria-hidden="true">▦</span>
           <div className="metric-value">{totalCampuses}</div>
           <div className="metric-label">Campuses</div>
-          <div className="metric-status positive">All active</div>
+          <div className="metric-status positive">{isDemoMode ? 'Demo data' : 'Live data'}</div>
         </article>
 
         <article className="metric-card">
@@ -104,7 +116,9 @@ export default function DashboardPage() {
           <span className="metric-icon" aria-hidden="true">◎</span>
           <div className="metric-value">{totalStudentsFormatted}</div>
           <div className="metric-label">Students</div>
-          <div className="metric-status positive">+18 this month</div>
+          <div className="metric-status positive">
+            {isDemoMode ? 'Demo data' : `+${liveSummary.students.createdThisMonth} this month`}
+          </div>
         </article>
       </div>
 

@@ -2,7 +2,7 @@ import { Router, type Router as ExpressRouter } from 'express';
 import { isValidObjectId, Types } from 'mongoose';
 import { z } from 'zod';
 import { assertTransition } from '../students/status-transitions';
-import { AuditEvent, Student, StudentStatus } from './models';
+import { AuditEvent, Campus, Department, Membership, Student, StudentStatus } from './models';
 import { ApiRequest, asyncRoute, HttpError } from './http';
 import { hasPermission, requirePermissions, requireRoles, requireTenant } from './middleware';
 
@@ -71,14 +71,34 @@ function assertStudentReadAccess(request: ApiRequest): void {
 
 studentsRouter.get('/dashboard/summary', requireRoles('owner', 'admin', 'faculty'), asyncRoute(async (request, response) => {
   const tenantId = (request as ApiRequest).tenant!.tenantId;
-  const [total, active, prospective, suspended, recentAudit] = await Promise.all([
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const [total, active, prospective, suspended, createdThisMonth, campuses, departments, roleCounts, recentAudit] = await Promise.all([
     Student.countDocuments({ tenantId }),
     Student.countDocuments({ tenantId, status: 'active' }),
     Student.countDocuments({ tenantId, status: 'prospective' }),
     Student.countDocuments({ tenantId, status: 'suspended' }),
+    Student.countDocuments({ tenantId, createdAt: { $gte: monthStart } }),
+    Campus.countDocuments({ tenantId, status: 'active' }),
+    Department.countDocuments({ tenantId, status: 'active' }),
+    Membership.aggregate<{ _id: string; count: number }>([
+      { $match: { tenantId, status: 'active' } },
+      { $group: { _id: '$role', count: { $sum: 1 } } },
+    ]),
     AuditEvent.find({ tenantId }).sort({ createdAt: -1 }).limit(5).select('action resourceType resourceId createdAt'),
   ]);
-  response.json({ students: { total, active, prospective, suspended }, recentActivity: recentAudit });
+  const roles = new Map(roleCounts.map((entry) => [entry._id, entry.count]));
+  response.json({
+    students: { total, active, prospective, suspended, createdThisMonth },
+    organization: { campuses, departments },
+    people: {
+      faculty: roles.get('faculty') ?? 0,
+      administrators: (roles.get('owner') ?? 0) + (roles.get('admin') ?? 0),
+      pendingReview: 0,
+    },
+    recentActivity: recentAudit,
+  });
 }));
 
 studentsRouter.get('/students', asyncRoute(async (request, response) => {

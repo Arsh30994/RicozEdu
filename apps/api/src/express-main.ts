@@ -1,6 +1,17 @@
 import 'dotenv/config';
+import { existsSync } from 'fs';
+import { resolve } from 'path';
+import { config as loadEnvironment } from 'dotenv';
 import mongoose from 'mongoose';
 import { createExpressApp } from './express/app';
+
+// pnpm runs a filtered package with apps/api as its working directory, while
+// Docker runs from the repository root. Load the root development environment
+// in either case, without replacing explicitly provided deployment variables.
+const rootEnvironmentPath = resolve(__dirname, '../../../.env');
+if (existsSync(rootEnvironmentPath)) {
+  loadEnvironment({ path: rootEnvironmentPath, override: false });
+}
 
 async function bootstrap(): Promise<void> {
   const mongoUri = process.env.MONGODB_URI;
