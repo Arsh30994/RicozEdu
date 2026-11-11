@@ -34,12 +34,17 @@ const ADMIN_NAV: NavSection[] = [
   { label: 'Learning', items: [
     { href: '/assistant', label: 'Ricoz AI' },
     { href: '/study', label: 'Study companion' },
+    { href: '/student/timetable', label: 'Timetable' },
+    { href: '/student/assignments', label: 'Assignments' },
   ] },
 ];
 
 const TEACHER_NAV: NavSection[] = [
   { items: [{ href: '/teacher/dashboard', label: 'Teaching dashboard' }] },
   { label: 'Teaching', items: [
+    { href: '/teacher/classes', label: 'My classes' },
+    { href: '/teacher/attendance', label: 'Attendance' },
+    { href: '/teacher/assignments', label: 'Assignments' },
     { href: '/admin/students', label: 'Student directory' },
     { href: '/assistant', label: 'Ricoz AI' },
     { href: '/study', label: 'Teaching resources' },
