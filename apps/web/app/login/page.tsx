@@ -88,10 +88,6 @@ export default function LoginPage() {
     }
   }
 
-  function continueToDemo() {
-    router.push('/admin/dashboard');
-  }
-
   return (
     <section className="console-login">
       <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onLoad={initializeGoogle} />
@@ -141,12 +137,7 @@ export default function LoginPage() {
             {error}
           </p>
         ) : null}
-        <p className="console-login-help">
-          Trouble signing in?{' '}
-          <button type="button" onClick={continueToDemo}>
-            Continue to demo console
-          </button>
-        </p>
+        <p className="console-login-help">Trouble signing in? Contact your institution administrator.</p>
       </form>
     </section>
   );
