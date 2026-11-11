@@ -30,7 +30,9 @@ export function createExpressApp(): Express {
     credentials: false,
   }));
   app.use(express.json({ limit: '1mb', strict: true }));
-  app.use('/v1/auth/login', rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false }));
+  const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false });
+  app.use('/v1/auth/login', authLimiter);
+  app.use('/v1/auth/google', authLimiter);
   app.use('/v1/tenants', rateLimit({ windowMs: 60 * 60 * 1000, limit: 3, standardHeaders: 'draft-8', legacyHeaders: false }));
 
   app.get('/health', (_request, response) => {
