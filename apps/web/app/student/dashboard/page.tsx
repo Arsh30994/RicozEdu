@@ -7,7 +7,7 @@ const learningAreas = [
   { icon: '▦', title: 'My courses', description: 'Your enrolled subjects, course materials, and class resources.', status: 'Open your enrolled classes', href: '/student/timetable' },
   { icon: '◷', title: 'Timetable', description: 'Your daily classes, rooms, and upcoming academic sessions.', status: 'View weekly timetable', href: '/student/timetable' },
   { icon: '✓', title: 'Assignments', description: 'Track assigned work, due dates, and submission status.', status: 'Submit work and view feedback', href: '/student/assignments' },
-  { icon: '▥', title: 'Attendance & results', description: 'Keep track of attendance, assessment marks, and academic progress.', status: 'Attendance and gradebook integration pending' },
+  { icon: '▥', title: 'Attendance & results', description: 'Keep track of attendance, assessment marks, and academic progress.', status: 'View recorded attendance', href: '/student/attendance' },
 ];
 
 export default function StudentDashboardPage() {
