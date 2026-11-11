@@ -2374,3 +2374,23 @@ h3 {
 .role-dashboard-note { margin: 0; padding: .85rem 1rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--ink-secondary); font-size: .82rem; }
 @media (max-width: 1100px) { .role-module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) { .role-module-grid, .role-action-grid { grid-template-columns: 1fr; } .role-welcome { padding: 1.35rem; } .role-welcome-mark { width: 52px; height: 52px; flex-basis: 52px; } }
+
+
+/* Academic workflow surfaces */
+.academic-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;align-items:end}
+.academic-form label,.academic-inline-form label{display:flex;flex-direction:column;gap:.4rem;color:var(--ink-secondary);font-size:.86rem}
+.academic-form input,.academic-form select,.academic-form textarea,.academic-inline-form input,.academic-inline-form select,.academic-attendance-row select,.academic-list-item input,.academic-list-item textarea{width:100%;min-width:0;padding:.7rem .8rem;border:1px solid var(--border-subtle);border-radius:8px;background:var(--surface-elevated);color:var(--ink-primary);font:inherit}
+.academic-form select[multiple]{min-height:130px}
+.academic-form textarea,.academic-list-item textarea{min-height:100px;resize:vertical}
+.academic-form small{font-size:.75rem;color:var(--ink-secondary)}
+.academic-list-item{display:flex;flex-direction:column;gap:.45rem;padding:1rem 0;border-bottom:1px solid var(--border-subtle)}
+.academic-list-item:last-child{border-bottom:0}
+.academic-list-item>span,.academic-list-item>small{color:var(--ink-secondary);font-size:.86rem}
+.academic-inline-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:.65rem;align-items:end;margin-top:.65rem}
+.academic-attendance-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.75rem 0;border-bottom:1px solid var(--border-subtle)}
+.academic-attendance-row select{max-width:170px}
+.attendance-status{text-transform:capitalize;font-weight:600}
+.attendance-status.present{color:#23865a}.attendance-status.absent{color:#c04b4b}.attendance-status.late{color:#b17a18}.attendance-status.excused{color:var(--ink-secondary)}
+.role-module-card{color:inherit;text-decoration:none;cursor:pointer}
+.role-module-action{display:block;margin-top:.75rem;color:var(--accent);font-size:.82rem;font-weight:600}
+@media(max-width:640px){.academic-attendance-row{align-items:flex-start;flex-direction:column}.academic-attendance-row select{max-width:none}.academic-inline-form{grid-template-columns:1fr 1fr}}
