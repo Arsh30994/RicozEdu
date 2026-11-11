@@ -211,7 +211,7 @@ authRouter.post('/auth/google', asyncRoute(async (request, response) => {
   const { credential } = googleLoginSchema.parse(request.body);
   const claims = await verifyGoogleCredential(credential);
   const email = claims.email!.trim().toLowerCase();
-  let user = await User.findOne({ email });
+  let user = await User.findOne({ email }).select('+googleSub');
 
   if (!user) {
     throw new HttpError(403, 'ACCOUNT_NOT_PROVISIONED', 'This Google account is not registered with an institution. Ask your institution administrator to create your RicozEdu account first.');
@@ -225,7 +225,7 @@ authRouter.post('/auth/google', asyncRoute(async (request, response) => {
   if (!user.googleSub) {
     try {
       await User.updateOne({ _id: user._id, $or: [{ googleSub: null }, { googleSub: { $exists: false } }] }, { $set: { googleSub: claims.sub } });
-      user = await User.findOne({ _id: user._id });
+      user = await User.findOne({ _id: user._id }).select('+googleSub');
       if (!user || user.googleSub !== claims.sub) {
         throw new HttpError(409, 'GOOGLE_ACCOUNT_MISMATCH', 'This RicozEdu account is already linked to another Google account.');
       }
