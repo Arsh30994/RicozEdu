@@ -5,7 +5,8 @@ export function apiBase(): string {
 export type PortalRole = 'owner' | 'admin' | 'faculty' | 'finance' | 'guardian' | 'student' | 'teacher';
 
 export function dashboardPathForRole(role: PortalRole): string {
-  if (role === 'student' || role === 'guardian') return '/student/dashboard';
+  if (role === 'student') return '/student/dashboard';
+  if (role === 'guardian') return '/guardian/dashboard';
   if (role === 'faculty' || role === 'teacher') return '/teacher/dashboard';
   return '/admin/dashboard';
 }
