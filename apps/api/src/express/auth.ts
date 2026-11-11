@@ -298,6 +298,7 @@ authRouter.get('/me/memberships', asyncRoute(async (request, response) => {
         const tenant = membership.tenantId as unknown as { _id: Types.ObjectId; name: string };
         return {
           membershipId: membership._id.toString(),
+          userId: userId.toString(),
           tenantId: tenant._id.toString(),
           tenantName: tenant.name,
           role: membership.role,
