@@ -1,7 +1,7 @@
 'use client';
 import { useEffect,useState } from 'react';
-import { api,loadSession } from '../../../../lib/api';
-import { PageHeader } from '../../../../components/console-ui';
+import { api,loadSession } from '../../../lib/api';
+import { PageHeader } from '../../../components/console-ui';
 type C={id:string;code:string;name:string;courseId?:{code:string;name:string}};
 type T={id:string;dayOfWeek:number;startTime:string;endTime:string;room:string};
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
