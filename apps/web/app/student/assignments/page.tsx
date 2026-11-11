@@ -1,7 +1,7 @@
 'use client';
 import { useEffect,useState } from 'react';
-import { api,loadSession } from '../../../../lib/api';
-import { PageHeader } from '../../../../components/console-ui';
+import { api,loadSession } from '../../../lib/api';
+import { PageHeader } from '../../../components/console-ui';
 type A={id:string;title:string;instructions:string;dueAt:string;maxScore:number;classId?:{code:string;name:string}};
 type Sub={id:string;text:string;score:number|null;feedback:string;submittedAt:string};
 export default function StudentAssignmentsPage(){
