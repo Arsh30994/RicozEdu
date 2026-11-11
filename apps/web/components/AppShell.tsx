@@ -46,6 +46,13 @@ const TEACHER_NAV: NavSection[] = [
   ] },
 ];
 
+const GUARDIAN_NAV: NavSection[] = [
+  { items: [{ href: '/guardian/dashboard', label: 'Family dashboard' }] },
+  { label: 'Support', items: [
+    { href: '/assistant', label: 'Ricoz AI' },
+  ] },
+];
+
 const STUDENT_NAV: NavSection[] = [
   { items: [{ href: '/student/dashboard', label: 'My dashboard' }] },
   { label: 'Learning', items: [
