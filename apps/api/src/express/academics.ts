@@ -149,9 +149,9 @@ academicsRouter.post('/classes/:id/timetable', requirePermissions('academics.man
   const otherEntries = await TimetableEntry.find({
     tenantId: context(req).tenantId, dayOfWeek: input.dayOfWeek,
     effectiveFrom: { $lte: input.effectiveUntil }, effectiveUntil: { $gte: input.effectiveFrom },
-  }).populate({ path: 'classId', select: 'teacherUserId room name' });
+  }).populate({ path: 'classId', select: 'teacherUserId room name studentIds' });
   for (const entry of otherEntries) {
-    const other = entry.classId as unknown as { _id: Types.ObjectId; teacherUserId: Types.ObjectId; room: string };
+    const other = entry.classId as unknown as { _id: Types.ObjectId; teacherUserId: Types.ObjectId; room: string; studentIds: Types.ObjectId[] };
     if (!other?._id) continue;
     const overlaps = timesOverlap(input.startTime, input.endTime, entry.startTime, entry.endTime)
       && dateRangesOverlap(input.effectiveFrom, input.effectiveUntil, entry.effectiveFrom, entry.effectiveUntil);
@@ -159,8 +159,9 @@ academicsRouter.post('/classes/:id/timetable', requirePermissions('academics.man
     const sameTeacher = other.teacherUserId.equals(group.teacherUserId);
     const sameRoom = Boolean(input.room && (input.room === (entry.room || other.room)));
     const sameClass = other._id.equals(group._id);
-    if (sameClass || sameTeacher || sameRoom) {
-      throw new HttpError(409, 'TIMETABLE_CONFLICT', sameClass ? 'This class already has a session at that time.' : sameTeacher ? 'The assigned teacher has another class at that time.' : 'The room is already allocated at that time.');
+    const sameStudent = (other.studentIds ?? []).some(studentId => group.studentIds.some(currentId => currentId.equals(studentId)));
+    if (sameClass || sameTeacher || sameRoom || sameStudent) {
+      throw new HttpError(409, 'TIMETABLE_CONFLICT', sameClass ? 'This class already has a session at that time.' : sameTeacher ? 'The assigned teacher has another class at that time.' : sameRoom ? 'The room is already allocated at that time.' : 'At least one enrolled student has another class at that time.');
     }
   }
   const entry = await TimetableEntry.create({ ...input, tenantId: context(req).tenantId, classId: group._id });
