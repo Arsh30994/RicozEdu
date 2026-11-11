@@ -42,7 +42,7 @@ const TEACHER_NAV: NavSection[] = [
     { href: '/teacher/classes', label: 'My classes' },
     { href: '/teacher/attendance', label: 'Attendance' },
     { href: '/teacher/assignments', label: 'Assignments' },
-    { href: '/admin/students', label: 'Student directory' },
+    { href: '/teacher/students', label: 'Student directory' },
     { href: '/assistant', label: 'Ricoz AI' },
     { href: '/study', label: 'Teaching resources' },
   ] },
@@ -227,7 +227,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="sidebar-brand-mark">R</span>
             <span className="sidebar-brand-copy">
               <span className="sidebar-brand-title">RicozEdu</span>
-              <span className="sidebar-brand-subtitle">Admin console</span>
+              <span className="sidebar-brand-subtitle">{roleLabel}</span>
             </span>
           </Link>
         </div>
