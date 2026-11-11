@@ -3,7 +3,7 @@ import { isValidObjectId, Types } from 'mongoose';
 import { z } from 'zod';
 import {
   AcademicPeriod, Assignment, AssignmentSubmission, AttendanceRecord, AuditEvent,
-  ClassGroup, Course, Membership, Student,
+  ClassGroup, Course, Membership, Student, TimetableEntry,
 } from './models';
 import { ApiRequest, asyncRoute, HttpError } from './http';
 import { requirePermissions, requireTenant } from './middleware';
@@ -108,7 +108,7 @@ academicsRouter.post('/classes', requirePermissions('academics.manage'), asyncRo
   ]);
   if (!course || !period) throw new HttpError(404, 'ACADEMIC_RESOURCE_NOT_FOUND', 'The course and academic period must exist in this institution.');
   if (!teacher) throw new HttpError(400, 'FACULTY_MEMBERSHIP_REQUIRED', 'The assigned teacher must have an active faculty membership in this institution.');
-  if (students.length !== new Set(input.studentIds).size) throw new HttpError(400, 'INVALID_CLASS_ROSTER', 'Every student must be an active student in this institution.');
+  if (new Set(input.studentIds).size !== input.studentIds.length || students.length !== input.studentIds.length) throw new HttpError(400, 'INVALID_CLASS_ROSTER', 'Every student must be an active student in this institution.');
   const group = await ClassGroup.create({ ...input, tenantId: context(req).tenantId, studentIds: students.map((student) => student._id) });
   await audit(req, 'class.created', 'class', group._id.toString(), { rosterSize: students.length });
   response.status(201).json(serialize(group));
@@ -117,7 +117,7 @@ academicsRouter.post('/classes', requirePermissions('academics.manage'), asyncRo
 academicsRouter.get('/classes/:id/timetable', asyncRoute(async (request, response) => {
   const req = request as ApiRequest;
   const group = await loadClass(req, request.params.id);
-  const rows = await (await import('./models')).TimetableEntry.find({ tenantId: context(req).tenantId, classId: group._id }).sort({ dayOfWeek: 1, startTime: 1 });
+  const rows = await TimetableEntry.find({ tenantId: context(req).tenantId, classId: group._id }).sort({ dayOfWeek: 1, startTime: 1 });
   response.json({ items: rows.map(serialize) });
 }));
 
@@ -127,7 +127,6 @@ academicsRouter.post('/classes/:id/timetable', requirePermissions('academics.man
   const req = request as ApiRequest;
   const group = await loadClass(req, request.params.id);
   if (input.effectiveUntil < input.effectiveFrom) throw new HttpError(400, 'INVALID_DATE_RANGE', 'The timetable end date must not precede its start date.');
-  const { TimetableEntry } = await import('./models');
   const otherEntries = await TimetableEntry.find({
     tenantId: context(req).tenantId, dayOfWeek: input.dayOfWeek,
     effectiveFrom: { $lte: input.effectiveUntil }, effectiveUntil: { $gte: input.effectiveFrom },
@@ -214,6 +213,20 @@ academicsRouter.post('/classes/:id/assignments', requirePermissions('academics.m
   const assignment = await Assignment.create({ ...input, tenantId: context(req).tenantId, classId: group._id, createdBy: actor(req) });
   await audit(req, 'assignment.created', 'assignment', assignment._id.toString());
   response.status(201).json(serialize(assignment));
+}));
+
+academicsRouter.get('/assignments/:id/my-submission', asyncRoute(async (request, response) => {
+  const req = request as ApiRequest;
+  if (context(req).role !== 'student') throw new HttpError(403, 'FORBIDDEN', 'This endpoint is for student accounts.');
+  if (!isValidObjectId(request.params.id)) throw new HttpError(400, 'INVALID_ID', 'The assignment ID is invalid.');
+  const student = await Student.findOne({ tenantId: context(req).tenantId, userId: actor(req), status: 'active' }).select('_id');
+  if (!student) throw new HttpError(404, 'STUDENT_PROFILE_NOT_FOUND', 'No active student profile is linked to this account.');
+  const assignment = await Assignment.findOne({ _id: request.params.id, tenantId: context(req).tenantId, status: 'published' });
+  if (!assignment) throw new HttpError(404, 'ASSIGNMENT_NOT_FOUND', 'Assignment not found or not published.');
+  const group = await ClassGroup.findOne({ _id: assignment.classId, tenantId: context(req).tenantId, studentIds: student._id, status: 'active' });
+  if (!group) throw new HttpError(403, 'NOT_ENROLLED', 'You are not enrolled in this class.');
+  const submission = await AssignmentSubmission.findOne({ tenantId: context(req).tenantId, assignmentId: assignment._id, studentId: student._id });
+  response.json({ submission: submission ? serialize(submission) : null });
 }));
 
 academicsRouter.post('/assignments/:id/submissions', asyncRoute(async (request, response) => {
