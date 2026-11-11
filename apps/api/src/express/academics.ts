@@ -114,6 +114,7 @@ academicsRouter.post('/classes', requirePermissions('academics.manage'), asyncRo
     Student.find({ _id: { $in: input.studentIds }, tenantId: context(req).tenantId, status: 'active' }).select('_id'),
   ]);
   if (!course || !period) throw new HttpError(404, 'ACADEMIC_RESOURCE_NOT_FOUND', 'The course and academic period must exist in this institution.');
+  if (context(req).role === 'faculty' && input.teacherUserId !== actor(req).toString()) throw new HttpError(403, 'CLASS_TEACHER_ASSIGNMENT_FORBIDDEN', 'Faculty can only create classes assigned to themselves.');
   if (!teacher) throw new HttpError(400, 'FACULTY_MEMBERSHIP_REQUIRED', 'The assigned teacher must have an active faculty membership in this institution.');
   if (new Set(input.studentIds).size !== input.studentIds.length || students.length !== input.studentIds.length) throw new HttpError(400, 'INVALID_CLASS_ROSTER', 'Every student must be an active student in this institution.');
   const group = await ClassGroup.create({ ...input, tenantId: context(req).tenantId, studentIds: students.map((student) => student._id) });
