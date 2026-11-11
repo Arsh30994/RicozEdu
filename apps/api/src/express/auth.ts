@@ -8,8 +8,8 @@ import { AuditEvent, Membership, RefreshToken, Tenant, User } from './models';
 import { ApiRequest, asyncRoute, HttpError } from './http';
 
 const loginSchema = z.object({
-  email: z.string().email().max(254).transform((email) => email.toLowerCase().trim()),
-  password: z.string().min(12).max(128),
+  email: z.string().trim().email().max(254).transform((email) => email.toLowerCase()),
+  password: z.string().min(8).max(128),
 }).strict();
 
 const refreshSchema = z.object({ refreshToken: z.string().min(40).max(200) }).strict();
@@ -20,8 +20,8 @@ const bootstrapSchema = z.object({
   institutionType: z.enum(['school', 'higher_ed']).default('higher_ed'),
   timezone: z.string().trim().min(1).max(100).default('Asia/Kolkata'),
   adminName: z.string().trim().min(2).max(120),
-  adminEmail: z.string().email().max(254).transform((email) => email.toLowerCase().trim()),
-  adminPassword: z.string().min(12).max(128),
+  adminEmail: z.string().trim().email().max(254).transform((email) => email.toLowerCase()),
+  adminPassword: z.string().min(8).max(128),
 }).strict();
 
 const accessTtlSeconds = (): number => {
