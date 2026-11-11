@@ -59,6 +59,9 @@ const GUARDIAN_NAV: NavSection[] = [
 const STUDENT_NAV: NavSection[] = [
   { items: [{ href: '/student/dashboard', label: 'My dashboard' }] },
   { label: 'Learning', items: [
+    { href: '/student/timetable', label: 'Timetable' },
+    { href: '/student/attendance', label: 'Attendance' },
+    { href: '/student/assignments', label: 'Assignments' },
     { href: '/study', label: 'Study companion' },
     { href: '/assistant', label: 'Ricoz AI' },
   ] },
