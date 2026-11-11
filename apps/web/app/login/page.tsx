@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
-import { api, saveSession } from '../../lib/api';
+import { api, dashboardPathForRole, saveSession, type PortalRole } from '../../lib/api';
 
 const REMEMBER_KEY = 'ricozedu.rememberEmail';
 
@@ -39,15 +39,18 @@ export default function LoginPage() {
       refreshToken: res.refreshToken,
       tenantId: '',
       email: res.user?.email ?? fallbackEmail,
-      role: 'teacher' as 'teacher' | 'student',
+      role: 'admin' as PortalRole,
     };
     const memberships = await api<Array<{ tenantId: string; status: string; role: string }>>('/v1/me/memberships', { session });
     const activeMembership = memberships.find((item) => item.status === 'active');
     if (!activeMembership) throw new Error('Your account is authenticated but has no active institution access. Contact your institution administrator.');
     session.tenantId = activeMembership.tenantId;
-    session.role = activeMembership.role === 'student' ? 'student' : 'teacher';
+    if (!['owner', 'admin', 'faculty', 'finance', 'guardian', 'student'].includes(activeMembership.role)) {
+      throw new Error('Your institution has assigned an unsupported role. Contact your administrator.');
+    }
+    session.role = activeMembership.role as PortalRole;
     saveSession(session);
-    router.push('/admin/dashboard');
+    router.push(dashboardPathForRole(session.role));
   }
 
   function initializeGoogle() {
