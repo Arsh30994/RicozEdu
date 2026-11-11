@@ -34,8 +34,6 @@ const ADMIN_NAV: NavSection[] = [
   { label: 'Learning', items: [
     { href: '/assistant', label: 'Ricoz AI' },
     { href: '/study', label: 'Study companion' },
-    { href: '/student/timetable', label: 'Timetable' },
-    { href: '/student/assignments', label: 'Assignments' },
   ] },
 ];
 
