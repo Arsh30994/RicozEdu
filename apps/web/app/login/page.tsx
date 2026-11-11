@@ -2,14 +2,14 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, savePortalRole, saveSession } from '../../lib/api';
+import { api, saveSession } from '../../lib/api';
 
 const REMEMBER_KEY = 'ricozedu.rememberEmail';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('priya.nair@gtbit.edu');
-  const [password, setPassword] = useState('demo-access12');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +25,7 @@ export default function LoginPage() {
       const res = await api<{
         accessToken: string;
         refreshToken?: string;
-        user?: { email?: string };
+        user?: { email?: string; name?: string };
       }>('/v1/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
@@ -33,7 +33,6 @@ export default function LoginPage() {
       });
       if (remember) window.localStorage.setItem(REMEMBER_KEY, email);
       else window.localStorage.removeItem(REMEMBER_KEY);
-      savePortalRole('teacher');
       const session = {
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
@@ -41,10 +40,15 @@ export default function LoginPage() {
         email: res.user?.email ?? email,
         role: 'teacher' as const,
       };
-      const memberships = await api<Array<{ tenantId: string; status: string }>>('/v1/me/memberships', {
+      const memberships = await api<Array<{ tenantId: string; status: string; role: string }>>('/v1/me/memberships', {
         session,
-      }).catch(() => []);
-      session.tenantId = memberships.find((item) => item.status === 'active')?.tenantId ?? memberships[0]?.tenantId ?? '';
+      });
+      const activeMembership = memberships.find((item) => item.status === 'active');
+      if (!activeMembership) {
+        throw new Error('Your account is authenticated but has no active institution access. Contact your institution administrator.');
+      }
+      session.tenantId = activeMembership.tenantId;
+      session.role = activeMembership.role === 'student' ? 'student' : 'teacher';
       saveSession(session);
       router.push('/admin/dashboard');
     } catch (err) {
@@ -78,8 +82,9 @@ export default function LoginPage() {
           name="password"
           type="password"
           autoComplete="current-password"
+          minLength={8}
           required
-          minLength={12}
+          minLength={8}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
