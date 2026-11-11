@@ -6,7 +6,7 @@ type ClassItem={id:string;code:string;name:string};
 type Student={id:string;studentNo:string;name:string};
 export default function TeacherAttendancePage(){
  const [classes,setClasses]=useState<ClassItem[]>([]),[students,setStudents]=useState<Student[]>([]),[classId,setClassId]=useState(''),[date,setDate]=useState(new Date().toISOString().slice(0,10)),[records,setRecords]=useState<Record<string,string>>({}),[message,setMessage]=useState(''),[error,setError]=useState('');
- useEffect(()=>{const s=loadSession();if(!s)return;void Promise.all([api<{items:ClassItem[]}>('/v1/classes',{session:s}),api<{items:Student[]}>('/v1/students?limit=100',{session:s})]).then(([c,p])=>{setClasses(c.items);setStudents(p.items);}).catch(e=>setError(e.message));},[]);
+ useEffect(()=>{const s=loadSession();if(!s)return;void api<{items:ClassItem[]}>('/v1/classes',{session:s}).then(c=>{setClasses(c.items);}).catch(e=>setError(e.message));},[]);
  const roster=students;
  async function loadAttendance(){const s=loadSession();if(!s||!classId)return;try{const [r,roster]=await Promise.all([api<{items:Array<{studentId:{id:string}|string;status:string}>}>(`/v1/classes/${classId}/attendance?date=${date}`,{session:s}),api<{items:Student[]}>(`/v1/classes/${classId}/roster`,{session:s})]);setStudents(roster.items);const next:Record<string,string>={};r.items.forEach(x=>next[typeof x.studentId==='string'?x.studentId:x.studentId.id]=x.status);setRecords(next);}catch(e){setError(e instanceof Error?e.message:'Unable to load attendance.');}}
  useEffect(()=>{if(classId)void loadAttendance();},[classId,date]);
