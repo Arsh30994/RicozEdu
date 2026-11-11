@@ -2,7 +2,7 @@ import { Router, type Router as ExpressRouter } from 'express';
 import { isValidObjectId, Types } from 'mongoose';
 import { z } from 'zod';
 import { assertTransition } from '../students/status-transitions';
-import { AuditEvent, Student, StudentStatus } from './models';
+import { AuditEvent, Membership, Student, StudentStatus } from './models';
 import { ApiRequest, asyncRoute, HttpError } from './http';
 import { hasPermission, requirePermissions, requireRoles, requireTenant } from './middleware';
 
@@ -156,7 +156,7 @@ studentsRouter.patch('/students/:id/link-account', requirePermissions('students.
   const req = request as ApiRequest;
   const [student, membership] = await Promise.all([
     Student.findOne({ _id: request.params.id, tenantId: req.tenant!.tenantId }),
-    (await import('./models')).Membership.findOne({ tenantId: req.tenant!.tenantId, userId: input.userId, role: 'student', status: 'active' }),
+    Membership.findOne({ tenantId: req.tenant!.tenantId, userId: input.userId, role: 'student', status: 'active' }),
   ]);
   if (!student) throw new HttpError(404, 'STUDENT_NOT_FOUND', 'Student not found.');
   if (!membership) throw new HttpError(400, 'STUDENT_ACCOUNT_REQUIRED', 'The account must have an active student membership in this institution.');
