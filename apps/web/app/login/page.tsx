@@ -129,7 +129,7 @@ export default function LoginPage() {
         </button>
         <div className="console-login-google">
           <div id="google-signin-button" />
-          {!googleReady && <p>Google sign-in loads when available.</p>}
+          {!googleReady && <p>{process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? 'Loading Google sign-in…' : 'Google sign-in will be available after the OAuth client ID is configured.'}</p>}
           {googleLoading && <p>Signing in with Google…</p>}
         </div>
         {error ? (
