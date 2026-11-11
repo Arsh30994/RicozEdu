@@ -1,7 +1,7 @@
 import { type RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
 import { isValidObjectId, Types } from 'mongoose';
-import { Membership, Tenant, User } from './models';
+import { Membership, Tenant, User, type ApiRole } from './models';
 import { ApiRequest, asyncRoute, HttpError } from './http';
 import { accessSecret } from './auth';
 
@@ -45,22 +45,48 @@ export const requireTenant: RequestHandler = asyncRoute(async (request, _respons
 
   const [tenant, membership] = await Promise.all([
     Tenant.findOne({ _id: tenantId, status: 'active' }).select('_id'),
-    Membership.findOne({ tenantId, userId: apiRequest.auth.userId, status: 'active' }).select('_id role'),
+    Membership.findOne({ tenantId, userId: apiRequest.auth.userId, status: 'active' }).select('_id role permissions'),
   ]);
   if (!tenant || !membership) throw new HttpError(403, 'TENANT_FORBIDDEN', 'You do not have access to this workspace.');
   apiRequest.tenant = {
     tenantId: tenant._id,
     membershipId: membership._id,
     role: membership.role,
+    permissions: membership.permissions ?? [],
   };
   next();
 });
 
-export function requireRoles(...roles: Array<'owner' | 'admin' | 'faculty' | 'student'>): RequestHandler {
+export const rolePermissions: Record<ApiRole, readonly string[]> = {
+  owner: ['*'],
+  admin: ['institution.manage', 'access.read', 'access.manage', 'students.read', 'students.write', 'academics.manage', 'imports.manage', 'privacy.manage', 'audit.read'],
+  faculty: ['students.read', 'students.write', 'academics.manage'],
+  finance: ['students.read', 'finance.read', 'finance.write'],
+  guardian: ['students.read.self'],
+  student: ['students.read.self'],
+};
+
+export function hasPermission(role: ApiRole, granted: string[], permission: string): boolean {
+  const defaults = rolePermissions[role];
+  return [...defaults, ...granted].some((entry) => entry === '*' || entry === permission || entry === `${permission.split('.')[0]}.*`);
+}
+
+export function requireRoles(...roles: ApiRole[]): RequestHandler {
   return (request, _response, next) => {
     const role = (request as ApiRequest).tenant?.role;
     if (!role) return next(new HttpError(403, 'TENANT_REQUIRED', 'An active workspace membership is required.'));
     if (!roles.includes(role)) return next(new HttpError(403, 'FORBIDDEN', 'You do not have permission to perform this action.'));
+    next();
+  };
+}
+
+export function requirePermissions(...permissions: string[]): RequestHandler {
+  return (request, _response, next) => {
+    const tenant = (request as ApiRequest).tenant;
+    if (!tenant) return next(new HttpError(403, 'TENANT_REQUIRED', 'An active workspace membership is required.'));
+    if (!permissions.every((permission) => hasPermission(tenant.role, tenant.permissions, permission))) {
+      return next(new HttpError(403, 'FORBIDDEN', 'You do not have permission to perform this action.'));
+    }
     next();
   };
 }

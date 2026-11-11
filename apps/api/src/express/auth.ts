@@ -17,6 +17,8 @@ const refreshSchema = z.object({ refreshToken: z.string().min(40).max(200) }).st
 const bootstrapSchema = z.object({
   name: z.string().trim().min(2).max(120),
   slug: z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(63),
+  institutionType: z.enum(['school', 'higher_ed']).default('higher_ed'),
+  timezone: z.string().trim().min(1).max(100).default('Asia/Kolkata'),
   adminName: z.string().trim().min(2).max(120),
   adminEmail: z.string().email().max(254).transform((email) => email.toLowerCase().trim()),
   adminPassword: z.string().min(12).max(128),
@@ -88,7 +90,12 @@ export const authRouter: ExpressRouter = Router();
 authRouter.post('/tenants', asyncRoute(async (request, response) => {
   verifyBootstrapToken(request.header('x-bootstrap-token'));
   const input = bootstrapSchema.parse(request.body);
-  const tenant = await Tenant.create({ name: input.name, slug: input.slug });
+  const tenant = await Tenant.create({
+    name: input.name,
+    slug: input.slug,
+    institutionType: input.institutionType,
+    timezone: input.timezone,
+  });
   let createdUserId: Types.ObjectId | undefined;
   try {
     const user = await User.create({
@@ -107,7 +114,10 @@ authRouter.post('/tenants', asyncRoute(async (request, response) => {
       metadata: { tenantSlug: tenant.slug },
     });
     response.status(201).json({
-      tenant: { id: tenant._id.toString(), name: tenant.name, slug: tenant.slug },
+      tenant: {
+        id: tenant._id.toString(), name: tenant.name, slug: tenant.slug,
+        institutionType: tenant.institutionType, timezone: tenant.timezone,
+      },
       user: { id: user._id.toString(), email: user.email },
     });
   } catch (error) {
@@ -199,6 +209,7 @@ authRouter.get('/me/memberships', asyncRoute(async (request, response) => {
           tenantId: tenant._id.toString(),
           tenantName: tenant.name,
           role: membership.role,
+          permissions: membership.permissions ?? [],
           status: membership.status,
         };
       }),
@@ -208,13 +219,16 @@ authRouter.get('/me/memberships', asyncRoute(async (request, response) => {
 authRouter.get('/tenants/current', asyncRoute(async (request, response) => {
   const apiRequest = request as ApiRequest;
   if (!apiRequest.tenant) throw new HttpError(400, 'TENANT_REQUIRED', 'X-Tenant-Id is required.');
-  const tenant = await Tenant.findById(apiRequest.tenant.tenantId).select('name slug status');
+  const tenant = await Tenant.findById(apiRequest.tenant.tenantId).select('name slug institutionType timezone status');
   if (!tenant) throw new HttpError(404, 'TENANT_NOT_FOUND', 'Workspace not found.');
   response.json({
     id: tenant._id.toString(),
     name: tenant.name,
     slug: tenant.slug,
+    institutionType: tenant.institutionType,
+    timezone: tenant.timezone,
     role: apiRequest.tenant.role,
+    permissions: apiRequest.tenant.permissions,
   });
 }));
 

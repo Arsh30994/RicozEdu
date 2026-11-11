@@ -4,8 +4,12 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import mongoose from 'mongoose';
 import { authRouter } from './auth';
+import { accessRouter } from './access';
+import { configurationRouter } from './configuration';
+import { importsRouter } from './imports';
 import { correlationId, errorHandler, HttpError } from './http';
 import { authenticate, requireTenant } from './middleware';
+import { privacyRouter } from './privacy';
 import { studentsRouter } from './students';
 
 export function createExpressApp(): Express {
@@ -40,6 +44,10 @@ export function createExpressApp(): Express {
   app.use('/v1/tenants/current', authenticate, requireTenant);
   app.use('/v1', authRouter);
   app.use('/v1', authenticate, studentsRouter);
+  app.use('/v1', authenticate, configurationRouter);
+  app.use('/v1', authenticate, accessRouter);
+  app.use('/v1', authenticate, privacyRouter);
+  app.use('/v1', authenticate, importsRouter);
   app.use((_request, response) => {
     response.status(404).json({ message: 'Route not found.', code: 'NOT_FOUND' });
   });

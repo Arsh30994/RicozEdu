@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { assertTransition } from '../students/status-transitions';
 import { AuditEvent, Student, StudentStatus } from './models';
 import { ApiRequest, asyncRoute, HttpError } from './http';
-import { requireRoles, requireTenant } from './middleware';
+import { hasPermission, requirePermissions, requireRoles, requireTenant } from './middleware';
 
 const createStudentSchema = z.object({
   studentNo: z.string().trim().min(1).max(40),
@@ -61,6 +61,14 @@ function serializeStudent(student: {
 export const studentsRouter: ExpressRouter = Router();
 studentsRouter.use(requireTenant);
 
+function assertStudentReadAccess(request: ApiRequest): void {
+  const tenant = request.tenant!;
+  const permission = tenant.role === 'student' ? 'students.read.self' : 'students.read';
+  if (!hasPermission(tenant.role, tenant.permissions, permission)) {
+    throw new HttpError(403, 'FORBIDDEN', 'You do not have permission to read student records.');
+  }
+}
+
 studentsRouter.get('/dashboard/summary', requireRoles('owner', 'admin', 'faculty'), asyncRoute(async (request, response) => {
   const tenantId = (request as ApiRequest).tenant!.tenantId;
   const [total, active, prospective, suspended, recentAudit] = await Promise.all([
@@ -76,6 +84,7 @@ studentsRouter.get('/dashboard/summary', requireRoles('owner', 'admin', 'faculty
 studentsRouter.get('/students', asyncRoute(async (request, response) => {
   const input = listQuerySchema.parse(request.query);
   const apiRequest = request as ApiRequest;
+  assertStudentReadAccess(apiRequest);
   const filter: Record<string, unknown> = { tenantId: apiRequest.tenant!.tenantId };
   if (apiRequest.tenant!.role === 'student') filter.userId = apiRequest.auth!.userId;
   if (input.status) filter.status = input.status;
@@ -97,7 +106,7 @@ studentsRouter.get('/students', asyncRoute(async (request, response) => {
   });
 }));
 
-studentsRouter.post('/students', requireRoles('owner', 'admin', 'faculty'), asyncRoute(async (request, response) => {
+studentsRouter.post('/students', requirePermissions('students.write'), asyncRoute(async (request, response) => {
   if ('tenantId' in (request.body ?? {})) {
     throw new HttpError(400, 'BODY_TENANT_ID_NOT_ALLOWED', 'Choose the workspace using X-Tenant-Id, not the request body.');
   }
@@ -127,6 +136,7 @@ studentsRouter.post('/students', requireRoles('owner', 'admin', 'faculty'), asyn
 studentsRouter.get('/students/:id', asyncRoute(async (request, response) => {
   if (!isValidObjectId(request.params.id)) throw new HttpError(400, 'INVALID_ID', 'The student ID is invalid.');
   const apiRequest = request as ApiRequest;
+  assertStudentReadAccess(apiRequest);
   const filter: Record<string, unknown> = {
     _id: request.params.id,
     tenantId: apiRequest.tenant!.tenantId,
@@ -137,7 +147,7 @@ studentsRouter.get('/students/:id', asyncRoute(async (request, response) => {
   response.json(serializeStudent(student));
 }));
 
-studentsRouter.patch('/students/:id/status', requireRoles('owner', 'admin', 'faculty'), asyncRoute(async (request, response) => {
+studentsRouter.patch('/students/:id/status', requirePermissions('students.write'), asyncRoute(async (request, response) => {
   if (!isValidObjectId(request.params.id)) throw new HttpError(400, 'INVALID_ID', 'The student ID is invalid.');
   if ('tenantId' in (request.body ?? {})) {
     throw new HttpError(400, 'BODY_TENANT_ID_NOT_ALLOWED', 'Choose the workspace using X-Tenant-Id, not the request body.');

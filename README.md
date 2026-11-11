@@ -2,7 +2,7 @@
 
 **RicozEdu** is a multi-tenant education operating system for institutions, administrators, faculty, and learners. It combines an administration console, secure workspace-based access, student lifecycle management, curriculum and degree-progress foundations, and an AI learning workspace for grounded study support.
 
-> **Project status:** The default local runtime is the Express + MongoDB service, which currently powers authentication, workspaces, student management, and dashboard data. The original NestJS + PostgreSQL/Redis service remains in the repository as the **legacy academic and AI runtime** while those domains are migrated. This README distinguishes the two so the current implementation is clear.
+> **Project status:** The default local runtime is the Express + MongoDB service, which powers authentication, workspace access, student operations, institution configuration, access control, privacy records, and CSV import/export. The original NestJS + PostgreSQL/Redis service remains in the repository as the **legacy academic and AI runtime** while those domains are migrated.
 
 ## What RicozEdu does
 
@@ -24,8 +24,11 @@ The active Express API uses MongoDB and provides these working vertical slices:
 - Secure tenant/workspace bootstrap with a one-time bootstrap token
 - Password login, short-lived JWT access tokens, rotating refresh tokens, and logout
 - Active membership lookup and workspace selection through `X-Tenant-Id`
-- Role-aware access for `owner`, `admin`, `faculty`, and `student`
+- Tenant-local role-aware access for `owner`, `admin`, `faculty`, `finance`, `guardian`, and `student`, with additive permissions
 - Tenant-scoped student list, search, detail, creation, dashboard summary, and lifecycle status transitions
+- Institution settings, campuses, academic periods, and separate school or higher-education academic configuration
+- Auditable consent and data-subject-request records
+- Student CSV import previews, validation results, idempotent jobs, guarded commits, and CSV exports
 - Structured errors, correlation IDs, CORS allow-listing, Helmet security headers, and rate limits on login and bootstrap routes
 - Audit events for tenant bootstrap, authentication, and student changes
 
@@ -62,8 +65,8 @@ infra/
 | Layer | Default technology | Responsibility |
 | --- | --- | --- |
 | Web | Next.js + React | Administration console, AI/study interfaces, browser voice controls |
-| Active API | Express 5 + Mongoose | Login, memberships, tenant context, students, dashboard summary |
-| Active database | MongoDB 7 | Users, tenants, memberships, refresh tokens, students, audit events |
+| Active API | Express 5 + Mongoose | Login, memberships, tenant context, student operations, configuration, privacy, imports |
+| Active database | MongoDB 7 | Users, tenants, memberships, student operations, academic configuration, privacy, import jobs, audit events |
 | Legacy API | NestJS + TypeScript | Academic rules, RLS-protected records, AI knowledge and study services |
 | Legacy infrastructure | PostgreSQL 16 + Redis 7 | Curriculum data, tenant isolation, migrations, asynchronous patterns |
 | Mobile | Expo + React Native | Learner sign-in and workspace/profile experience (in progress) |
@@ -119,6 +122,8 @@ curl -X POST http://localhost:4000/v1/tenants \
   -d '{
     "name": "Demo Institute",
     "slug": "demo-institute",
+    "institutionType": "higher_ed",
+    "timezone": "Asia/Kolkata",
     "adminName": "Admin User",
     "adminEmail": "admin@example.edu",
     "adminPassword": "a-long-unique-password"
@@ -140,11 +145,22 @@ All non-public workspace routes require `Authorization: Bearer <access-token>` a
 | `POST` | `/v1/auth/logout` | Revoke a refresh token | Public |
 | `GET` | `/v1/me/memberships` | List the signed-in user's active workspaces | Authenticated |
 | `GET` | `/v1/tenants/current` | Read selected workspace and membership role | Authenticated + tenant member |
+| `GET`, `PATCH` | `/v1/institution` | Read or update the selected institution | Tenant member / institution manager |
+| `GET`, `POST` | `/v1/campuses` | List or create campuses | Tenant member / institution manager |
+| `GET`, `POST` | `/v1/academic-periods` | List or create campus academic periods | Tenant member / academic manager |
+| `GET`, `POST` | `/v1/school/grades`, `/v1/school/sections` | Manage school-only configuration | Tenant member / academic manager |
+| `GET`, `POST` | `/v1/higher-ed/departments`, `/programmes`, `/courses` | Manage higher-ed-only configuration | Tenant member / academic manager |
+| `GET`, `PATCH` | `/v1/memberships`, `/v1/memberships/:id` | List or manage tenant memberships | Access reader / access manager |
 | `GET` | `/v1/dashboard/summary` | Student counts and latest activity | Owner, admin, faculty |
 | `GET` | `/v1/students` | Search/filter tenant-scoped student records | Tenant member; students only see their own record |
 | `POST` | `/v1/students` | Create a student record | Owner, admin, faculty |
 | `GET` | `/v1/students/:id` | Read a single student record | Tenant member; student scope enforced |
 | `PATCH` | `/v1/students/:id/status` | Perform an allowed lifecycle status transition | Owner, admin, faculty |
+| `POST` | `/v1/imports/students/preview` | Validate a tenant-scoped student CSV and create an import job | Import manager |
+| `POST` | `/v1/imports/students/:id/commit` | Commit an error-free, non-stale import job | Import manager |
+| `GET` | `/v1/exports/students.csv` | Export tenant-scoped student records | Student reader |
+| `GET`, `POST` | `/v1/privacy/consents` | View or capture consent evidence | Privacy manager |
+| `GET`, `POST`, `PATCH` | `/v1/privacy/requests`, `/v1/privacy/requests/:id` | Submit and resolve data-subject requests | Tenant member / privacy manager |
 
 Request bodies cannot choose a tenant. The server derives tenant context from the authenticated membership and `X-Tenant-Id`, preventing cross-workspace writes through a client-supplied `tenantId` field.
 
@@ -256,6 +272,9 @@ The Express API has focused tests for health and request validation. The legacy 
 - [Academic curriculum domain](docs/domains/academics-curriculum.md)
 - [Student lifecycle workflows](docs/domains/student-lifecycle-workflows.md)
 - [Database model review](docs/database/identity-academic-model-REVIEW.md)
+- [MongoDB R0 data-model mapping](docs/architecture/mongodb-r0-foundation.md)
+- [MongoDB canonical-runtime decision](docs/adr/015-mongodb-canonical-runtime.md)
+- [Market research and delivery roadmap](docs/product/market-research-and-delivery-roadmap.md)
 - [Master test plan](docs/testing/master-test-plan.md)
 
 ## Roadmap
