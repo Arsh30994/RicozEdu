@@ -43,7 +43,7 @@ export default function TeacherDashboardPage() {
       </div>
 
       <div className="role-action-grid">
-        <Link className="role-action-card" href="/admin/students">
+        <Link className="role-action-card" href="/teacher/students">
           <span aria-hidden="true">♙</span><div><h3>Student directory</h3><p>Open student records available to your institution role.</p></div><b>→</b>
         </Link>
         <Link className="role-action-card" href="/assistant">
