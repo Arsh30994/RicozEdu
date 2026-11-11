@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { useConsoleUser, PageHeader, UserChip } from '../../../components/console-ui';
 
 const learningAreas = [
-  { icon: '▦', title: 'My courses', description: 'Your enrolled subjects, course materials, and class resources.', status: 'Course data will appear when published by your institution' },
-  { icon: '◷', title: 'Timetable', description: 'Your daily classes, rooms, and upcoming academic sessions.', status: 'Timetable integration pending' },
-  { icon: '✓', title: 'Assignments', description: 'Track assigned work, due dates, and submission status.', status: 'Assignment integration pending' },
+  { icon: '▦', title: 'My courses', description: 'Your enrolled subjects, course materials, and class resources.', status: 'Open your enrolled classes', href: '/student/timetable' },
+  { icon: '◷', title: 'Timetable', description: 'Your daily classes, rooms, and upcoming academic sessions.', status: 'View weekly timetable', href: '/student/timetable' },
+  { icon: '✓', title: 'Assignments', description: 'Track assigned work, due dates, and submission status.', status: 'Submit work and view feedback', href: '/student/assignments' },
   { icon: '▥', title: 'Attendance & results', description: 'Keep track of attendance, assessment marks, and academic progress.', status: 'Attendance and gradebook integration pending' },
 ];
 
@@ -33,7 +33,7 @@ export default function StudentDashboardPage() {
       </div>
       <div className="role-module-grid">
         {learningAreas.map((item) => (
-          <article className="role-module-card" key={item.title}>
+          <Link href={item.href ?? '/student/timetable'} className="role-module-card" key={item.title}>
             <span className="role-module-icon" aria-hidden="true">{item.icon}</span>
             <h3>{item.title}</h3>
             <p>{item.description}</p>
@@ -50,7 +50,7 @@ export default function StudentDashboardPage() {
           <span aria-hidden="true">✧</span><div><h3>Ask Ricoz AI</h3><p>Get help understanding your academic material.</p></div><b>→</b>
         </Link>
       </div>
-      <p className="role-dashboard-note">Your institution has not connected course, timetable, attendance, or gradebook data to this portal yet. Once those modules are enabled, your personal records will appear here.</p>
+      <p className="role-dashboard-note">Your timetable, published assignments, submission status and teacher feedback are loaded from your institution's academic records.</p>
     </section>
   );
 }
