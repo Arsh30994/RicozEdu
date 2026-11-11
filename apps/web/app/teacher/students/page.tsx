@@ -1,7 +1,7 @@
 'use client';
 import { useEffect,useState } from 'react';
-import { api,loadSession } from '../../../../lib/api';
-import { PageHeader } from '../../../../components/console-ui';
+import { api,loadSession } from '../../../lib/api';
+import { PageHeader } from '../../../components/console-ui';
 type Student={id:string;studentNo:string;name:string;email:string;department:string;campus:string;status:string};
 export default function TeacherStudentsPage(){
  const [items,setItems]=useState<Student[]>([]),[error,setError]=useState('');
