@@ -163,17 +163,20 @@ academicsRouter.post('/classes/:id/timetable', requirePermissions('academics.man
 academicsRouter.get('/classes/:id/attendance', asyncRoute(async (request, response) => {
   const req = request as ApiRequest;
   const group = await loadClass(req, request.params.id);
-  const date = request.query.date ? new Date(String(request.query.date)) : new Date();
-  if (Number.isNaN(date.getTime())) throw new HttpError(400, 'INVALID_DATE', 'Provide a valid attendance date.');
-  const start = new Date(date); start.setHours(0, 0, 0, 0);
-  const end = new Date(date); end.setHours(23, 59, 59, 999);
-  const filter: Record<string, unknown> = { tenantId: context(req).tenantId, classId: group._id, date: { $gte: start, $lte: end } };
+  const filter: Record<string, unknown> = { tenantId: context(req).tenantId, classId: group._id };
+  if (request.query.date) {
+    const date = new Date(String(request.query.date));
+    if (Number.isNaN(date.getTime())) throw new HttpError(400, 'INVALID_DATE', 'Provide a valid attendance date.');
+    const start = new Date(date); start.setHours(0, 0, 0, 0);
+    const end = new Date(date); end.setHours(23, 59, 59, 999);
+    filter.date = { $gte: start, $lte: end };
+  }
   if (context(req).role === 'student') {
     const student = await Student.findOne({ tenantId: context(req).tenantId, userId: actor(req) }).select('_id');
     if (!student || !group.studentIds.some((id) => id.equals(student._id))) throw new HttpError(403, 'FORBIDDEN', 'You are not enrolled in this class.');
     filter.studentId = student._id;
   }
-  const rows = await AttendanceRecord.find(filter).populate('studentId', 'studentNo fullName');
+  const rows = await AttendanceRecord.find(filter).sort({ date: -1 }).limit(request.query.date ? 500 : 1000).populate('studentId', 'studentNo fullName');
   response.json({ items: rows.map(serialize) });
 }));
 
