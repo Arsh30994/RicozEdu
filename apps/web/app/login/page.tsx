@@ -1,10 +1,17 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import { api, saveSession } from '../../lib/api';
 
 const REMEMBER_KEY = 'ricozedu.rememberEmail';
+
+declare global {
+  interface Window {
+    google?: { accounts: { id: { initialize: (config: { client_id: string; callback: (response: { credential: string }) => void }) => void; renderButton: (element: HTMLElement, options: Record<string, unknown>) => void } } };
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,45 +19,66 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(REMEMBER_KEY);
     if (saved) setEmail(saved);
   }, []);
 
+
+  async function finishLogin(path: string, body: unknown, fallbackEmail: string) {
+    const res = await api<{
+      accessToken: string;
+      refreshToken?: string;
+      user?: { email?: string; name?: string };
+    }>(path, { method: 'POST', body: JSON.stringify(body), session: null });
+    const session = {
+      accessToken: res.accessToken,
+      refreshToken: res.refreshToken,
+      tenantId: '',
+      email: res.user?.email ?? fallbackEmail,
+      role: 'teacher' as 'teacher' | 'student',
+    };
+    const memberships = await api<Array<{ tenantId: string; status: string; role: string }>>('/v1/me/memberships', { session });
+    const activeMembership = memberships.find((item) => item.status === 'active');
+    if (!activeMembership) throw new Error('Your account is authenticated but has no active institution access. Contact your institution administrator.');
+    session.tenantId = activeMembership.tenantId;
+    session.role = activeMembership.role === 'student' ? 'student' : 'teacher';
+    saveSession(session);
+    router.push('/admin/dashboard');
+  }
+
+  function initializeGoogle() {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId || !window.google) return;
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: async ({ credential }) => {
+        setGoogleLoading(true);
+        setError(null);
+        try {
+          await finishLogin('/v1/auth/google', { credential }, '');
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Google sign-in failed.');
+        } finally {
+          setGoogleLoading(false);
+        }
+      },
+    });
+    const button = document.getElementById('google-signin-button');
+    if (button) window.google.accounts.id.renderButton(button, { theme: 'outline', size: 'large', shape: 'rectangular', text: 'continue_with', width: 320 });
+    setGoogleReady(true);
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     try {
-      const res = await api<{
-        accessToken: string;
-        refreshToken?: string;
-        user?: { email?: string; name?: string };
-      }>('/v1/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-        session: null,
-      });
-      if (remember) window.localStorage.setItem(REMEMBER_KEY, email);
+      if (remember) window.localStorage.setItem(REMEMBER_KEY, email.trim());
       else window.localStorage.removeItem(REMEMBER_KEY);
-      const session = {
-        accessToken: res.accessToken,
-        refreshToken: res.refreshToken,
-        tenantId: '',
-        email: res.user?.email ?? email,
-        role: 'teacher' as const,
-      };
-      const memberships = await api<Array<{ tenantId: string; status: string; role: string }>>('/v1/me/memberships', {
-        session,
-      });
-      const activeMembership = memberships.find((item) => item.status === 'active');
-      if (!activeMembership) {
-        throw new Error('Your account is authenticated but has no active institution access. Contact your institution administrator.');
-      }
-      session.tenantId = activeMembership.tenantId;
-      session.role = activeMembership.role === 'student' ? 'student' : 'teacher';
-      saveSession(session);
-      router.push('/admin/dashboard');
+      await finishLogin('/v1/auth/login', { email, password }, email.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     }
@@ -62,6 +90,7 @@ export default function LoginPage() {
 
   return (
     <section className="console-login">
+      <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onLoad={initializeGoogle} />
       <form className="console-login-card" onSubmit={onSubmit} aria-describedby={error ? 'login-error' : undefined}>
         <h1>
           Login to the <span>RicozEdu Console</span>
@@ -84,7 +113,6 @@ export default function LoginPage() {
           autoComplete="current-password"
           minLength={8}
           required
-          minLength={8}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
@@ -99,6 +127,11 @@ export default function LoginPage() {
         <button className="btn-primary" type="submit">
           Login
         </button>
+        <div className="console-login-google">
+          <div id="google-signin-button" />
+          {!googleReady && <p>Google sign-in loads when available.</p>}
+          {googleLoading && <p>Signing in with Google…</p>}
+        </div>
         {error ? (
           <p id="login-error" className="error" role="alert">
             {error}
