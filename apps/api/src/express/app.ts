@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import mongoose from 'mongoose';
 import { authRouter } from './auth';
 import { accessRouter } from './access';
+import { academicsRouter } from './academics';
 import { configurationRouter } from './configuration';
 import { importsRouter } from './imports';
 import { correlationId, errorHandler, HttpError } from './http';
@@ -46,6 +47,7 @@ export function createExpressApp(): Express {
   app.use('/v1/tenants/current', authenticate, requireTenant);
   app.use('/v1', authRouter);
   app.use('/v1', authenticate, studentsRouter);
+  app.use('/v1', authenticate, academicsRouter);
   app.use('/v1', authenticate, configurationRouter);
   app.use('/v1', authenticate, accessRouter);
   app.use('/v1', authenticate, privacyRouter);
