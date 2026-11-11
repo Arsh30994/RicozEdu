@@ -16,13 +16,15 @@ const userSchema = new Schema(
   {
     email: { type: String, required: true, lowercase: true, trim: true },
     fullName: { type: String, required: true, trim: true, maxlength: 120 },
-    passwordHash: { type: String, required: true, select: false },
+    passwordHash: { type: String, required: false, select: false },
+    googleSub: { type: String, required: false, select: false },
     status: { type: String, enum: ['active', 'disabled'], default: 'active', required: true },
     authorizationVersion: { type: Number, default: 0, required: true },
   },
   { timestamps: true },
 );
 userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ googleSub: 1 }, { unique: true, sparse: true });
 
 const membershipSchema = new Schema(
   {
