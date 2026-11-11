@@ -1,7 +1,7 @@
 'use client';
 import { useEffect,useState } from 'react';
-import { api,loadSession } from '../../../../lib/api';
-import { PageHeader } from '../../../../components/console-ui';
+import { api,loadSession } from '../../../lib/api';
+import { PageHeader } from '../../../components/console-ui';
 type ClassItem={id:string;code:string;name:string};
 type Student={id:string;studentNo:string;name:string};
 export default function TeacherAttendancePage(){
