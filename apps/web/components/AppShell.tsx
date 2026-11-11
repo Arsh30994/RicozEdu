@@ -223,7 +223,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="console app-shell" data-theme={theme}>
       <aside className="sidebar" aria-label="Main Navigation">
         <div className="sidebar-brand">
-          <Link href="/admin/dashboard">
+          <Link href={dashboardPathForRole(role)}>
             <span className="sidebar-brand-mark">R</span>
             <span className="sidebar-brand-copy">
               <span className="sidebar-brand-title">RicozEdu</span>
