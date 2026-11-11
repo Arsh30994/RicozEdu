@@ -79,6 +79,7 @@ const studentSchema = new Schema(
 studentSchema.index({ tenantId: 1, studentNo: 1 }, { unique: true });
 studentSchema.index({ tenantId: 1, status: 1, fullName: 1 });
 studentSchema.index({ tenantId: 1, email: 1 });
+studentSchema.index({ tenantId: 1, userId: 1 }, { unique: true, partialFilterExpression: { userId: { $type: 'objectId' } } });
 
 const campusSchema = new Schema(
   {
