@@ -38,7 +38,7 @@ export default function StudentDashboardPage() {
             <h3>{item.title}</h3>
             <p>{item.description}</p>
             <span className="role-module-status">{item.status}</span>
-          </article>
+          </Link>
         ))}
       </div>
 
