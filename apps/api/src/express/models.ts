@@ -16,13 +16,15 @@ const userSchema = new Schema(
   {
     email: { type: String, required: true, lowercase: true, trim: true },
     fullName: { type: String, required: true, trim: true, maxlength: 120 },
-    passwordHash: { type: String, required: true, select: false },
+    passwordHash: { type: String, required: false, select: false },
+    googleSub: { type: String, required: false, select: false },
     status: { type: String, enum: ['active', 'disabled'], default: 'active', required: true },
     authorizationVersion: { type: Number, default: 0, required: true },
   },
   { timestamps: true },
 );
 userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ googleSub: 1 }, { unique: true, sparse: true });
 
 const membershipSchema = new Schema(
   {
@@ -77,6 +79,7 @@ const studentSchema = new Schema(
 studentSchema.index({ tenantId: 1, studentNo: 1 }, { unique: true });
 studentSchema.index({ tenantId: 1, status: 1, fullName: 1 });
 studentSchema.index({ tenantId: 1, email: 1 });
+studentSchema.index({ tenantId: 1, userId: 1 }, { unique: true, partialFilterExpression: { userId: { $type: 'objectId' } } });
 
 const campusSchema = new Schema(
   {
@@ -164,6 +167,86 @@ const courseSchema = new Schema(
 );
 courseSchema.index({ tenantId: 1, code: 1 }, { unique: true });
 
+
+const classGroupSchema = new Schema(
+  {
+    tenantId: { type: Schema.Types.ObjectId, ref: 'RicozTenant', required: true },
+    courseId: { type: Schema.Types.ObjectId, ref: 'RicozCourse', required: true },
+    academicPeriodId: { type: Schema.Types.ObjectId, ref: 'RicozAcademicPeriod', required: true },
+    code: { type: String, required: true, trim: true, uppercase: true, maxlength: 40 },
+    name: { type: String, required: true, trim: true, maxlength: 160 },
+    teacherUserId: { type: Schema.Types.ObjectId, ref: 'RicozUser', required: true },
+    studentIds: { type: [Schema.Types.ObjectId], ref: 'RicozStudent', default: [] },
+    room: { type: String, trim: true, maxlength: 80, default: '' },
+    status: { type: String, enum: ['active', 'archived'], default: 'active', required: true },
+  },
+  { timestamps: true },
+);
+classGroupSchema.index({ tenantId: 1, academicPeriodId: 1, code: 1 }, { unique: true });
+classGroupSchema.index({ tenantId: 1, teacherUserId: 1, status: 1 });
+classGroupSchema.index({ tenantId: 1, studentIds: 1, status: 1 });
+
+const timetableEntrySchema = new Schema(
+  {
+    tenantId: { type: Schema.Types.ObjectId, ref: 'RicozTenant', required: true },
+    classId: { type: Schema.Types.ObjectId, ref: 'RicozClassGroup', required: true },
+    dayOfWeek: { type: Number, min: 0, max: 6, required: true },
+    startTime: { type: String, required: true, match: /^([01]\\d|2[0-3]):[0-5]\\d$/ },
+    endTime: { type: String, required: true, match: /^([01]\\d|2[0-3]):[0-5]\\d$/ },
+    room: { type: String, trim: true, maxlength: 80, default: '' },
+    effectiveFrom: { type: Date, required: true },
+    effectiveUntil: { type: Date, required: true },
+  },
+  { timestamps: true },
+);
+timetableEntrySchema.index({ tenantId: 1, classId: 1, dayOfWeek: 1 });
+
+const attendanceRecordSchema = new Schema(
+  {
+    tenantId: { type: Schema.Types.ObjectId, ref: 'RicozTenant', required: true },
+    classId: { type: Schema.Types.ObjectId, ref: 'RicozClassGroup', required: true },
+    studentId: { type: Schema.Types.ObjectId, ref: 'RicozStudent', required: true },
+    date: { type: Date, required: true },
+    status: { type: String, enum: ['present', 'absent', 'late', 'excused'], required: true },
+    note: { type: String, trim: true, maxlength: 500, default: '' },
+    markedBy: { type: Schema.Types.ObjectId, ref: 'RicozUser', required: true },
+  },
+  { timestamps: true },
+);
+attendanceRecordSchema.index({ tenantId: 1, classId: 1, studentId: 1, date: 1 }, { unique: true });
+
+const assignmentSchema = new Schema(
+  {
+    tenantId: { type: Schema.Types.ObjectId, ref: 'RicozTenant', required: true },
+    classId: { type: Schema.Types.ObjectId, ref: 'RicozClassGroup', required: true },
+    title: { type: String, required: true, trim: true, maxlength: 160 },
+    instructions: { type: String, trim: true, maxlength: 10000, default: '' },
+    dueAt: { type: Date, required: true },
+    maxScore: { type: Number, min: 0, max: 10000, default: 100 },
+    status: { type: String, enum: ['draft', 'published', 'closed'], default: 'published', required: true },
+    createdBy: { type: Schema.Types.ObjectId, ref: 'RicozUser', required: true },
+  },
+  { timestamps: true },
+);
+assignmentSchema.index({ tenantId: 1, classId: 1, status: 1, dueAt: 1 });
+
+const assignmentSubmissionSchema = new Schema(
+  {
+    tenantId: { type: Schema.Types.ObjectId, ref: 'RicozTenant', required: true },
+    assignmentId: { type: Schema.Types.ObjectId, ref: 'RicozAssignment', required: true },
+    studentId: { type: Schema.Types.ObjectId, ref: 'RicozStudent', required: true },
+    text: { type: String, trim: true, maxlength: 20000, default: '' },
+    attachmentUrl: { type: String, trim: true, maxlength: 2000, default: '' },
+    submittedAt: { type: Date, required: true, default: Date.now },
+    score: { type: Number, min: 0, default: null },
+    feedback: { type: String, trim: true, maxlength: 5000, default: '' },
+    gradedBy: { type: Schema.Types.ObjectId, ref: 'RicozUser', default: null },
+    gradedAt: { type: Date, default: null },
+  },
+  { timestamps: true },
+);
+assignmentSubmissionSchema.index({ tenantId: 1, assignmentId: 1, studentId: 1 }, { unique: true });
+
 const importJobSchema = new Schema(
   {
     tenantId: { type: Schema.Types.ObjectId, ref: 'RicozTenant', required: true },
@@ -239,6 +322,11 @@ export const SchoolSection = models.RicozSchoolSection ?? model('RicozSchoolSect
 export const Department = models.RicozDepartment ?? model('RicozDepartment', departmentSchema);
 export const Programme = models.RicozProgramme ?? model('RicozProgramme', programmeSchema);
 export const Course = models.RicozCourse ?? model('RicozCourse', courseSchema);
+export const ClassGroup = models.RicozClassGroup ?? model('RicozClassGroup', classGroupSchema);
+export const TimetableEntry = models.RicozTimetableEntry ?? model('RicozTimetableEntry', timetableEntrySchema);
+export const AttendanceRecord = models.RicozAttendanceRecord ?? model('RicozAttendanceRecord', attendanceRecordSchema);
+export const Assignment = models.RicozAssignment ?? model('RicozAssignment', assignmentSchema);
+export const AssignmentSubmission = models.RicozAssignmentSubmission ?? model('RicozAssignmentSubmission', assignmentSubmissionSchema);
 export const ImportJob = models.RicozImportJob ?? model('RicozImportJob', importJobSchema);
 export const ConsentRecord = models.RicozConsentRecord ?? model('RicozConsentRecord', consentRecordSchema);
 export const PrivacyRequest = models.RicozPrivacyRequest ?? model('RicozPrivacyRequest', privacyRequestSchema);

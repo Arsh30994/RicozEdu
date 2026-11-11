@@ -1,110 +1,118 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ConsoleSearch } from '../../../components/ConsoleSearch';
 import { PageHeader, UserChip, useConsoleUser } from '../../../components/console-ui';
 import { dataConnector, AppState } from '../../../lib/data-connector';
 import { api, loadSession } from '../../../lib/api';
 
+type DashboardSummary = {
+  students?: { total?: number };
+  institutions?: { total?: number };
+  campuses?: { total?: number };
+  departments?: { total?: number };
+  faculty?: { total?: number };
+  administrators?: { total?: number };
+  pendingReviews?: { total?: number };
+};
+
 export default function DashboardPage() {
-  const router = useRouter();
   const [state, setState] = useState<AppState>(dataConnector.getState());
-  const [liveStudentCount, setLiveStudentCount] = useState<number | null>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [showTimezoneModal, setShowTimezoneModal] = useState(false);
-  const [timezone, setTimezone] = useState('Asia/Kolkata (IST, UTC+05:30)');
+  const [demoMode, setDemoMode] = useState(true);
   const user = useConsoleUser();
 
   useEffect(() => {
-    const unsub = dataConnector.subscribe(() => {
-      setState({ ...dataConnector.getState() });
-    });
-    return () => unsub();
-  }, []);
-
-  useEffect(() => {
+    const unsub = dataConnector.subscribe(() => setState({ ...dataConnector.getState() }));
     const session = loadSession();
-    if (!session?.accessToken || !session.tenantId) return;
+    setDemoMode(!session?.accessToken || !session.tenantId);
+
+    if (!session?.accessToken || !session.tenantId) {
+      setLoading(false);
+      return () => unsub();
+    }
 
     let active = true;
-    void api<{ students: { total: number } }>('/v1/dashboard/summary', { session })
-      .then((summary) => {
+    void api<DashboardSummary>('/v1/dashboard/summary', { session })
+      .then((result) => {
         if (active) {
-          setLiveStudentCount(summary.students.total);
+          setSummary(result);
           setApiError(null);
         }
       })
       .catch((error: unknown) => {
-        if (active) setApiError(error instanceof Error ? error.message : 'Unable to load live dashboard data.');
+        if (active) {
+          setSummary(null);
+          setApiError(error instanceof Error ? error.message : 'Unable to load live dashboard data.');
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
 
     return () => {
       active = false;
+      unsub();
     };
   }, []);
 
-  const totalCampuses = state.institutions.reduce((acc, i) => acc + i.campusesCount, 0);
-  const totalDepartments = state.institutions[0]?.departmentsCount ?? state.departments.length;
-  const totalStudentsFormatted = (liveStudentCount ?? state.totalStudents).toLocaleString();
-  const facultyCount = 86;
-  const adminCount = 12;
-  const pendingReviewCount = 4;
+  const sampleCampuses = state.institutions.reduce((total, institution) => total + institution.campusesCount, 0);
+  const sampleDepartments = state.institutions[0]?.departmentsCount ?? state.departments.length;
   const unassignedDepartments = state.departments.filter((department) => {
     const admin = department.admin?.trim();
     return !admin || /^(unassigned|—|-|–)$/i.test(admin);
   }).length;
 
-  function handleSetupClick(actionType: string) {
-    if (actionType === 'assign_admin') {
-      router.push('/admin/institutions');
-    } else if (actionType === 'review_duplicate') {
-      router.push('/admin/people');
-    } else if (actionType === 'confirm_timezone') {
-      setShowTimezoneModal(true);
-    }
-  }
-
-  function handleConfirmTimezone() {
-    dataConnector.completePendingSetup('set-3');
-    dataConnector.addAudit(`Campus timezone confirmed: ${timezone}`, 'Success', 'Priya Nair');
-    setShowTimezoneModal(false);
+  function metric(value: number | undefined): string {
+    return loading ? '…' : value === undefined ? '—' : value.toLocaleString();
   }
 
   return (
     <section className="dashboard-page">
       <PageHeader title="Dashboard">
-        <ConsoleSearch />
         <UserChip name={user.name} role={user.roleLabel} initials={user.initials} />
       </PageHeader>
-      {apiError ? <p className="error" role="alert">{apiError}</p> : null}
+
+      {demoMode ? (
+        <div className="notice notice-warning" role="status">
+          Demo environment — all figures and activity below are sample data. Changes are local to this browser and are not saved to an institution.
+        </div>
+      ) : null}
+
+      {apiError ? (
+        <div className="error" role="alert">
+          Live dashboard data could not be loaded: {apiError}. Sample data is deliberately not substituted.
+        </div>
+      ) : null}
 
       <div className="metrics-grid">
         <article className="metric-card">
           <span className="metric-icon" aria-hidden="true">◆</span>
-          <div className="metric-value">{state.institutions.length}</div>
+          <div className="metric-value">{demoMode ? state.institutions.length : metric(summary?.institutions?.total)}</div>
           <div className="metric-label">Institutions</div>
+          {demoMode ? <div className="metric-status warning">Sample data</div> : null}
         </article>
 
         <article className="metric-card">
           <span className="metric-icon" aria-hidden="true">▦</span>
-          <div className="metric-value">{totalCampuses}</div>
+          <div className="metric-value">{demoMode ? sampleCampuses : metric(summary?.campuses?.total)}</div>
           <div className="metric-label">Campuses</div>
-          <div className="metric-status positive">All active</div>
+          {demoMode ? <div className="metric-status warning">Sample data</div> : null}
         </article>
 
         <article className="metric-card">
           <span className="metric-icon" aria-hidden="true">▤</span>
-          <div className="metric-value">{totalDepartments}</div>
+          <div className="metric-value">{demoMode ? sampleDepartments : metric(summary?.departments?.total)}</div>
           <div className="metric-label">Departments</div>
-          <div className="metric-status warning">{unassignedDepartments} unassigned</div>
+          {demoMode ? <div className="metric-status warning">{unassignedDepartments} unassigned · sample</div> : null}
         </article>
 
         <article className="metric-card">
           <span className="metric-icon" aria-hidden="true">◎</span>
-          <div className="metric-value">{totalStudentsFormatted}</div>
+          <div className="metric-value">{demoMode ? state.totalStudents.toLocaleString() : metric(summary?.students?.total)}</div>
           <div className="metric-label">Students</div>
-          <div className="metric-status positive">+18 this month</div>
+          {demoMode ? <div className="metric-status warning">Sample data</div> : null}
         </article>
       </div>
 
@@ -112,102 +120,42 @@ export default function DashboardPage() {
         <section className="card people-role-card">
           <div className="card-header"><h2 className="card-title">People by role</h2></div>
           <div className="role-metrics">
-            <div className="role-tile students"><strong>{totalStudentsFormatted}</strong><span>Students</span></div>
-            <div className="role-tile faculty"><strong>{facultyCount}</strong><span>Faculty</span></div>
-            <div className="role-tile admins"><strong>{adminCount}</strong><span>Admins</span></div>
-            <div className="role-tile review"><strong>{pendingReviewCount}</strong><span>Pending review</span></div>
+            <div className="role-tile students"><strong>{demoMode ? state.totalStudents.toLocaleString() : metric(summary?.students?.total)}</strong><span>Students</span></div>
+            <div className="role-tile faculty"><strong>{demoMode ? 'Sample' : metric(summary?.faculty?.total)}</strong><span>Faculty</span></div>
+            <div className="role-tile admins"><strong>{demoMode ? 'Sample' : metric(summary?.administrators?.total)}</strong><span>Admins</span></div>
+            <div className="role-tile review"><strong>{demoMode ? 'Sample' : metric(summary?.pendingReviews?.total)}</strong><span>Pending review</span></div>
           </div>
+          {!demoMode ? <p className="muted">A dash means the API does not currently provide that metric. No estimated or hardcoded counts are shown.</p> : null}
         </section>
 
         <section className="card audit-card">
           <div className="card-header">
-            <h2 className="card-title">Recent audit activity</h2>
+            <h2 className="card-title">{demoMode ? 'Sample audit activity' : 'Recent audit activity'}</h2>
           </div>
-          <ul className="audit-activity">
-            {state.auditLogs.slice(0, 4).map((log) => (
-              <li key={log.id}>
-                <span>{log.label}</span>
-                <span className={`audit-result ${log.status === 'Success' ? 'ok' : log.status === 'Blocked' || log.status === 'Failed' ? 'bad' : 'warn'}`}>
-                  {log.status}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {demoMode ? (
+            <ul className="audit-activity">
+              {state.auditLogs.slice(0, 4).map((log) => (
+                <li key={log.id}>
+                  <span>{log.label}</span>
+                  <span className={`audit-result ${log.status === 'Success' ? 'ok' : log.status === 'Blocked' || log.status === 'Failed' ? 'bad' : 'warn'}`}>{log.status}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">Live audit activity is not connected to this dashboard yet. Open Audit log for the available institutional records.</p>
+          )}
         </section>
       </div>
 
-      {/* Pending Setup */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">Pending setup</h2>
+      {demoMode ? (
+        <div className="card">
+          <div className="card-header"><h2 className="card-title">Demo setup checklist</h2></div>
+          <p className="muted">These example tasks are illustrative only. They do not represent outstanding work at a real institution.</p>
+          <ul className="audit-activity">
+            {state.pendingSetups.map((setup) => <li key={setup.id}><span>{setup.title}</span><span className="audit-result warn">Example</span></li>)}
+          </ul>
         </div>
-
-        <div className="timeline-list setup">
-          {state.pendingSetups.map((setup) => (
-            <div
-              key={setup.id}
-              className="timeline-item"
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleSetupClick(setup.actionType)}
-              title="Click to resolve task"
-            >
-              <div className="bullet-dot" />
-              <div className="timeline-content">
-                <div className="timeline-title">{setup.title}</div>
-                <div className="timeline-subtitle">{setup.subtitle}</div>
-              </div>
-            </div>
-          ))}
-          {state.pendingSetups.length === 0 && (
-            <div style={{ color: 'var(--ink-secondary)', fontSize: '0.9rem', padding: '0.5rem 0' }}>
-              ✓ All setup tasks have been completed.
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Timezone Confirmation Modal */}
-      {showTimezoneModal && (
-        <div className="modal-backdrop" onClick={() => setShowTimezoneModal(false)}>
-          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
-            <h2>Confirm campus 2 timezone</h2>
-            <p>Set and confirm the operational timezone for academic calendar and scheduled classes.</p>
-
-            <div className="form-group">
-              <label htmlFor="tz-select">Timezone</label>
-              <select
-                id="tz-select"
-                value={timezone}
-                onChange={(e) => setTimezone(e.target.value)}
-              >
-                <option value="Asia/Kolkata (IST, UTC+05:30)">Asia/Kolkata (IST, UTC+05:30)</option>
-                <option value="UTC (UTC+00:00)">UTC (UTC+00:00)</option>
-                <option value="America/New_York (EST, UTC-05:00)">America/New_York (EST, UTC-05:00)</option>
-                <option value="Europe/London (GMT, UTC+00:00)">Europe/London (GMT, UTC+00:00)</option>
-                <option value="Asia/Dubai (GST, UTC+04:00)">Asia/Dubai (GST, UTC+04:00)</option>
-                <option value="Asia/Singapore (SGT, UTC+08:00)">Asia/Singapore (SGT, UTC+08:00)</option>
-              </select>
-            </div>
-
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setShowTimezoneModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={handleConfirmTimezone}
-              >
-                Confirm Timezone
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      ) : null}
     </section>
   );
 }

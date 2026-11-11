@@ -2,11 +2,19 @@ export function apiBase(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 }
 
-export type PortalRole = 'teacher' | 'student';
+export type PortalRole = 'owner' | 'admin' | 'faculty' | 'finance' | 'guardian' | 'student' | 'teacher';
+
+export function dashboardPathForRole(role: PortalRole): string {
+  if (role === 'student') return '/student/dashboard';
+  if (role === 'guardian') return '/guardian/dashboard';
+  if (role === 'faculty' || role === 'teacher') return '/teacher/dashboard';
+  return '/admin/dashboard';
+}
 
 export type Session = {
   accessToken: string;
   refreshToken?: string;
+  userId?: string;
   tenantId: string;
   email: string;
   role: PortalRole;
@@ -25,9 +33,9 @@ export function createIdempotencyKey(): string {
 export function loadPortalRole(): PortalRole {
   if (typeof window === 'undefined') return 'teacher';
   const fromSession = loadSession()?.role;
-  if (fromSession === 'teacher' || fromSession === 'student') return fromSession;
+  if (fromSession) return fromSession;
   const raw = localStorage.getItem(ROLE_KEY);
-  return raw === 'student' ? 'student' : 'teacher';
+  return raw === 'student' ? 'student' : 'admin';
 }
 
 export function savePortalRole(role: PortalRole) {

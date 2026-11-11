@@ -8,8 +8,8 @@ import { AuditEvent, Membership, RefreshToken, Tenant, User } from './models';
 import { ApiRequest, asyncRoute, HttpError } from './http';
 
 const loginSchema = z.object({
-  email: z.string().email().max(254).transform((email) => email.toLowerCase().trim()),
-  password: z.string().min(12).max(128),
+  email: z.string().trim().email().max(254).transform((email) => email.toLowerCase()),
+  password: z.string().min(8).max(128),
 }).strict();
 
 const refreshSchema = z.object({ refreshToken: z.string().min(40).max(200) }).strict();
@@ -20,8 +20,8 @@ const bootstrapSchema = z.object({
   institutionType: z.enum(['school', 'higher_ed']).default('higher_ed'),
   timezone: z.string().trim().min(1).max(100).default('Asia/Kolkata'),
   adminName: z.string().trim().min(2).max(120),
-  adminEmail: z.string().email().max(254).transform((email) => email.toLowerCase().trim()),
-  adminPassword: z.string().min(12).max(128),
+  adminEmail: z.string().trim().email().max(254).transform((email) => email.toLowerCase()),
+  adminPassword: z.string().min(8).max(128),
 }).strict();
 
 const accessTtlSeconds = (): number => {
@@ -84,6 +84,54 @@ function verifyBootstrapToken(supplied: string | undefined): void {
     throw new HttpError(401, 'BOOTSTRAP_FORBIDDEN', 'A valid bootstrap token is required.');
   }
 }
+
+
+type GoogleClaims = jwt.JwtPayload & { email?: string; email_verified?: boolean; name?: string; sub?: string; iss?: string; aud?: string };
+
+let googleCertificates: Record<string, string> = {};
+let googleCertificatesExpiresAt = 0;
+
+async function verifyGoogleCredential(idToken: string): Promise<GoogleClaims> {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) throw new Error('GOOGLE_CLIENT_ID is not configured.');
+  const decoded = jwt.decode(idToken, { complete: true });
+  if (!decoded || typeof decoded === 'string' || decoded.header.alg !== 'RS256' || !decoded.header.kid) {
+    throw new HttpError(401, 'INVALID_GOOGLE_TOKEN', 'Google sign-in token is invalid.');
+  }
+
+  if (Date.now() >= googleCertificatesExpiresAt || !googleCertificates[decoded.header.kid]) {
+    const response = await fetch('https://www.googleapis.com/oauth2/v3/certs', { signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw new Error('Unable to retrieve Google signing certificates.');
+    const payload = await response.json() as { keys?: Array<{ kid?: string; x5c?: string[] }> };
+    const certificates: Record<string, string> = {};
+    for (const key of payload.keys ?? []) {
+      if (key.kid && key.x5c?.[0]) certificates[key.kid] = `-----BEGIN CERTIFICATE-----\\n${key.x5c[0]}\\n-----END CERTIFICATE-----`;
+    }
+    if (!Object.keys(certificates).length) throw new Error('Google signing certificates were unavailable.');
+    googleCertificates = certificates;
+    googleCertificatesExpiresAt = Date.now() + 50 * 60 * 1000;
+  }
+
+  const certificate = googleCertificates[decoded.header.kid];
+  if (!certificate) throw new HttpError(401, 'INVALID_GOOGLE_TOKEN', 'Google sign-in token is invalid.');
+  let claims: GoogleClaims;
+  try {
+    claims = jwt.verify(idToken, certificate, {
+      algorithms: ['RS256'],
+      audience: clientId,
+      issuer: ['https://accounts.google.com', 'accounts.google.com'],
+      clockTolerance: 5,
+    }) as GoogleClaims;
+  } catch {
+    throw new HttpError(401, 'INVALID_GOOGLE_TOKEN', 'Google sign-in token is invalid or expired.');
+  }
+  if (!claims.sub || !claims.email || claims.email_verified !== true) {
+    throw new HttpError(401, 'UNVERIFIED_GOOGLE_ACCOUNT', 'Google must provide a verified email address.');
+  }
+  return claims;
+}
+
+const googleLoginSchema = z.object({ credential: z.string().min(100).max(10000) }).strict();
 
 export const authRouter: ExpressRouter = Router();
 
@@ -158,6 +206,50 @@ authRouter.post('/auth/login', asyncRoute(async (request, response) => {
   });
 }));
 
+
+authRouter.post('/auth/google', asyncRoute(async (request, response) => {
+  const { credential } = googleLoginSchema.parse(request.body);
+  const claims = await verifyGoogleCredential(credential);
+  const email = claims.email!.trim().toLowerCase();
+  let user = await User.findOne({ email }).select('+googleSub');
+
+  if (!user) {
+    throw new HttpError(403, 'ACCOUNT_NOT_PROVISIONED', 'This Google account is not registered with an institution. Ask your institution administrator to create your RicozEdu account first.');
+  }
+  if (user.status !== 'active') {
+    throw new HttpError(403, 'ACCOUNT_DISABLED', 'This RicozEdu account is disabled.');
+  }
+  if (user.googleSub && user.googleSub !== claims.sub) {
+    throw new HttpError(409, 'GOOGLE_ACCOUNT_MISMATCH', 'A different Google account is already linked to this RicozEdu account.');
+  }
+  if (!user.googleSub) {
+    try {
+      await User.updateOne({ _id: user._id, $or: [{ googleSub: null }, { googleSub: { $exists: false } }] }, { $set: { googleSub: claims.sub } });
+      user = await User.findOne({ _id: user._id }).select('+googleSub');
+      if (!user || user.googleSub !== claims.sub) {
+        throw new HttpError(409, 'GOOGLE_ACCOUNT_MISMATCH', 'This RicozEdu account is already linked to another Google account.');
+      }
+    } catch (error) {
+      if (error instanceof HttpError) throw error;
+      throw new HttpError(409, 'GOOGLE_ACCOUNT_MISMATCH', 'This Google account could not be linked.');
+    }
+  }
+
+  const tokens = await issueTokenPair(user._id, user.authorizationVersion);
+  await AuditEvent.create({
+    actorUserId: user._id,
+    action: 'auth.google_login',
+    resourceType: 'user',
+    resourceId: user._id.toString(),
+    correlationId: (request as ApiRequest).correlationId,
+    metadata: { provider: 'google' },
+  });
+  response.json({
+    ...tokens,
+    user: { id: user._id.toString(), email: user.email, name: user.fullName },
+  });
+}));
+
 authRouter.post('/auth/refresh', asyncRoute(async (request, response) => {
   const { refreshToken } = refreshSchema.parse(request.body);
   const tokenHash = hashToken(refreshToken);
@@ -206,6 +298,7 @@ authRouter.get('/me/memberships', asyncRoute(async (request, response) => {
         const tenant = membership.tenantId as unknown as { _id: Types.ObjectId; name: string };
         return {
           membershipId: membership._id.toString(),
+          userId: userId.toString(),
           tenantId: tenant._id.toString(),
           tenantName: tenant.name,
           role: membership.role,

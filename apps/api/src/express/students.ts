@@ -2,7 +2,7 @@ import { Router, type Router as ExpressRouter } from 'express';
 import { isValidObjectId, Types } from 'mongoose';
 import { z } from 'zod';
 import { assertTransition } from '../students/status-transitions';
-import { AuditEvent, Student, StudentStatus } from './models';
+import { AuditEvent, Membership, Student, StudentStatus } from './models';
 import { ApiRequest, asyncRoute, HttpError } from './http';
 import { hasPermission, requirePermissions, requireRoles, requireTenant } from './middleware';
 
@@ -144,6 +144,27 @@ studentsRouter.get('/students/:id', asyncRoute(async (request, response) => {
   if (apiRequest.tenant!.role === 'student') filter.userId = apiRequest.auth!.userId;
   const student = await Student.findOne(filter);
   if (!student) throw new HttpError(404, 'STUDENT_NOT_FOUND', 'Student not found.');
+  response.json(serializeStudent(student));
+}));
+
+const linkAccountSchema = z.object({ userId: z.string().refine(isValidObjectId, 'userId must be a valid account ID.') }).strict();
+
+studentsRouter.patch('/students/:id/link-account', requirePermissions('students.write'), asyncRoute(async (request, response) => {
+  if (!isValidObjectId(request.params.id)) throw new HttpError(400, 'INVALID_ID', 'The student ID is invalid.');
+  if ('tenantId' in (request.body ?? {})) throw new HttpError(400, 'BODY_TENANT_ID_NOT_ALLOWED', 'Choose the workspace using X-Tenant-Id.');
+  const input = linkAccountSchema.parse(request.body);
+  const req = request as ApiRequest;
+  const [student, membership] = await Promise.all([
+    Student.findOne({ _id: request.params.id, tenantId: req.tenant!.tenantId }),
+    Membership.findOne({ tenantId: req.tenant!.tenantId, userId: input.userId, role: 'student', status: 'active' }),
+  ]);
+  if (!student) throw new HttpError(404, 'STUDENT_NOT_FOUND', 'Student not found.');
+  if (!membership) throw new HttpError(400, 'STUDENT_ACCOUNT_REQUIRED', 'The account must have an active student membership in this institution.');
+  const alreadyLinked = await Student.findOne({ tenantId: req.tenant!.tenantId, userId: input.userId, _id: { $ne: student._id } });
+  if (alreadyLinked) throw new HttpError(409, 'STUDENT_ACCOUNT_ALREADY_LINKED', 'This account is already linked to another student record.');
+  student.userId = new Types.ObjectId(input.userId);
+  await student.save();
+  await AuditEvent.create({ tenantId: req.tenant!.tenantId, actorUserId: req.auth!.userId, action: 'student.account_linked', resourceType: 'student', resourceId: student._id.toString(), correlationId: req.correlationId, metadata: { linkedUserId: input.userId } });
   response.json(serializeStudent(student));
 }));
 

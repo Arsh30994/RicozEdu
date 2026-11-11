@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import mongoose from 'mongoose';
 import { authRouter } from './auth';
 import { accessRouter } from './access';
+import { academicsRouter } from './academics';
 import { configurationRouter } from './configuration';
 import { importsRouter } from './imports';
 import { correlationId, errorHandler, HttpError } from './http';
@@ -30,7 +31,9 @@ export function createExpressApp(): Express {
     credentials: false,
   }));
   app.use(express.json({ limit: '1mb', strict: true }));
-  app.use('/v1/auth/login', rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false }));
+  const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false });
+  app.use('/v1/auth/login', authLimiter);
+  app.use('/v1/auth/google', authLimiter);
   app.use('/v1/tenants', rateLimit({ windowMs: 60 * 60 * 1000, limit: 3, standardHeaders: 'draft-8', legacyHeaders: false }));
 
   app.get('/health', (_request, response) => {
@@ -44,6 +47,7 @@ export function createExpressApp(): Express {
   app.use('/v1/tenants/current', authenticate, requireTenant);
   app.use('/v1', authRouter);
   app.use('/v1', authenticate, studentsRouter);
+  app.use('/v1', authenticate, academicsRouter);
   app.use('/v1', authenticate, configurationRouter);
   app.use('/v1', authenticate, accessRouter);
   app.use('/v1', authenticate, privacyRouter);

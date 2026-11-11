@@ -22,7 +22,7 @@ The Next.js console provides a modern, responsive workspace for education admini
 The active Express API uses MongoDB and provides these working vertical slices:
 
 - Secure tenant/workspace bootstrap with a one-time bootstrap token
-- Password login, short-lived JWT access tokens, rotating refresh tokens, and logout
+- Password login (8-character minimum), Google sign-in for pre-provisioned accounts, short-lived JWT access tokens, rotating refresh tokens, and logout
 - Active membership lookup and workspace selection through `X-Tenant-Id`
 - Tenant-local role-aware access for `owner`, `admin`, `faculty`, `finance`, `guardian`, and `student`, with additive permissions
 - Tenant-scoped student list, search, detail, creation, dashboard summary, and lifecycle status transitions
@@ -166,7 +166,7 @@ Request bodies cannot choose a tenant. The server derives tenant context from th
 
 ## Authentication and tenancy
 
-1. A user signs in with email and password.
+1. A user signs in with email/password or Google Identity Services. Google ID tokens are verified server-side against Google's signing keys, issuer, audience, expiry, and verified-email claim.
 2. The API returns a short-lived access token and rotating refresh token.
 3. The client asks for active memberships using `GET /v1/me/memberships`.
 4. The client selects one workspace and includes its ID in `X-Tenant-Id`.

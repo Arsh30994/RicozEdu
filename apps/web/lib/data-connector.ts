@@ -414,6 +414,24 @@ class DataConnectorService {
 
   private load() {
     try {
+      const session = loadSession();
+      if (session?.accessToken && session.tenantId) {
+        // Demo fixtures must never leak into an authenticated institution workspace.
+        localStorage.removeItem(STORAGE_KEY);
+        this.state = {
+          institutions: [],
+          departments: [],
+          people: [],
+          duplicates: [],
+          students: [],
+          auditLogs: [],
+          pendingSetups: [],
+          userRoles: [],
+          selectedCampus: '',
+          totalStudents: 0,
+        };
+        return;
+      }
       localStorage.removeItem('ricozedu.app_state_v1');
       localStorage.removeItem('ricozedu.app_state_v2');
       const stored = localStorage.getItem(STORAGE_KEY);

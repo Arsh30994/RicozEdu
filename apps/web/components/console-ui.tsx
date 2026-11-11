@@ -133,7 +133,7 @@ export function useConsoleUser() {
   }, [pathname, sessionVersion]);
 
   const name = email ? nameFromEmail(email) : 'Priya Nair';
-  const roleLabel = email ? (role === 'teacher' ? 'Institution admin' : 'Student') : 'Institution admin';
+  const roleLabel = email ? ({ owner: 'Institution owner', admin: 'Institution admin', faculty: 'Teacher', teacher: 'Teacher', finance: 'Finance', guardian: 'Guardian', student: 'Student' }[role]) : 'Demo admin';
   const initials = name
     .split(' ')
     .filter(Boolean)
