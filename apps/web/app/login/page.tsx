@@ -32,11 +32,12 @@ export default function LoginPage() {
     const res = await api<{
       accessToken: string;
       refreshToken?: string;
-      user?: { email?: string; name?: string };
+      user?: { id?: string; email?: string; name?: string };
     }>(path, { method: 'POST', body: JSON.stringify(body), session: null });
     const session = {
       accessToken: res.accessToken,
       refreshToken: res.refreshToken,
+      userId: res.user?.id,
       tenantId: '',
       email: res.user?.email ?? fallbackEmail,
       role: 'admin' as PortalRole,
