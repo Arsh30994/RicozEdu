@@ -149,7 +149,7 @@ studentsRouter.get('/students/:id', asyncRoute(async (request, response) => {
 
 const linkAccountSchema = z.object({ userId: z.string().refine(isValidObjectId, 'userId must be a valid account ID.') }).strict();
 
-studentsRouter.patch('/students/:id/link-account', requirePermissions('students.write'), asyncRoute(async (request, response) => {
+studentsRouter.patch('/students/:id/link-account', requireRoles('owner', 'admin'), asyncRoute(async (request, response) => {
   if (!isValidObjectId(request.params.id)) throw new HttpError(400, 'INVALID_ID', 'The student ID is invalid.');
   if ('tenantId' in (request.body ?? {})) throw new HttpError(400, 'BODY_TENANT_ID_NOT_ALLOWED', 'Choose the workspace using X-Tenant-Id.');
   const input = linkAccountSchema.parse(request.body);
