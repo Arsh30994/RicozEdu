@@ -1,7 +1,7 @@
 'use client';
 import { useEffect,useState } from 'react';
-import { api,loadSession } from '../../../../lib/api';
-import { PageHeader } from '../../../../components/console-ui';
+import { api,loadSession } from '../../../lib/api';
+import { PageHeader } from '../../../components/console-ui';
 type C={id:string;code:string;name:string};type A={id:string;title:string;instructions:string;dueAt:string;maxScore:number;classId?:{code:string;name:string}};
 type S={id:string;studentId:{fullName:string;studentNo:string}|string;text:string;score:number|null;feedback:string};
 export default function TeacherAssignmentsPage(){
