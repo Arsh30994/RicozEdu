@@ -234,6 +234,20 @@ configurationRouter.post('/higher-ed/programmes', requirePermissions('academics.
   response.status(201).json(serialize(programme));
 }));
 
+configurationRouter.get('/courses', asyncRoute(async (request, response) => {
+  const rows = await Course.find({ tenantId: (request as ApiRequest).tenant!.tenantId, status: 'active' }).sort({ code: 1 });
+  response.json({ items: rows.map(serialize) });
+}));
+
+configurationRouter.post('/courses', requirePermissions('academics.manage'), asyncRoute(async (request, response) => {
+  rejectBodyTenant(request.body);
+  const input = courseSchema.parse(request.body);
+  const apiRequest = request as ApiRequest;
+  const course = await Course.create({ ...input, tenantId: apiRequest.tenant!.tenantId });
+  await audit(apiRequest, 'course.created', 'course', course._id.toString());
+  response.status(201).json(serialize(course));
+}));
+
 configurationRouter.get('/higher-ed/courses', asyncRoute(async (request, response) => {
   const apiRequest = request as ApiRequest;
   await assertInstitutionType(apiRequest, 'higher_ed');
