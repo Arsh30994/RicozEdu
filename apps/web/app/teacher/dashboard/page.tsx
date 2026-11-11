@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { useConsoleUser, PageHeader, UserChip } from '../../../components/console-ui';
 
 const teachingModules = [
-  { icon: '▤', title: 'My classes', description: 'View assigned sections, subjects, and class rosters.', status: 'Class allocation integration pending' },
-  { icon: '◷', title: 'Attendance', description: 'Record daily attendance and review class-wise attendance trends.', status: 'Attendance workflow not connected yet' },
-  { icon: '✓', title: 'Assignments', description: 'Create assignments, set due dates, and review student submissions.', status: 'Assignment workflow not connected yet' },
+  { icon: '▤', title: 'My classes', description: 'View assigned sections, subjects, and class rosters.', status: 'Open class management', href: '/teacher/classes' },
+  { icon: '◷', title: 'Attendance', description: 'Record daily attendance and review class-wise attendance trends.', status: 'Open attendance register', href: '/teacher/attendance' },
+  { icon: '✓', title: 'Assignments', description: 'Create assignments, set due dates, and review student submissions.', status: 'Create and grade assignments', href: '/teacher/assignments' },
   { icon: '▥', title: 'Gradebook', description: 'Enter marks, manage assessments, and share student feedback.', status: 'Gradebook integration pending' },
 ];
 
@@ -33,7 +33,7 @@ export default function TeacherDashboardPage() {
       </div>
       <div className="role-module-grid">
         {teachingModules.map((item) => (
-          <article className="role-module-card" key={item.title}>
+          <Link href={item.href ?? '/teacher/assignments'} className="role-module-card" key={item.title}>
             <span className="role-module-icon" aria-hidden="true">{item.icon}</span>
             <h3>{item.title}</h3>
             <p>{item.description}</p>
@@ -53,7 +53,7 @@ export default function TeacherDashboardPage() {
           <span aria-hidden="true">▣</span><div><h3>Teaching resources</h3><p>Open the study workspace and learning materials.</p></div><b>→</b>
         </Link>
       </div>
-      <p className="role-dashboard-note">Note: Class schedules, attendance, assignments, and gradebook data are not yet exposed by the active API. These cards intentionally show integration status instead of displaying invented records.</p>
+      <p className="role-dashboard-note">Class creation, attendance recording, assignment publishing, submissions and grading are connected to the institution API. Timetable scheduling is available through the class management workflow and will be expanded into a dedicated editor.</p>
     </section>
   );
 }
