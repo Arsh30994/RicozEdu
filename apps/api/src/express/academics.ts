@@ -59,6 +59,11 @@ function rejectTenantOverride(body: unknown) {
     throw new HttpError(400, 'BODY_TENANT_ID_NOT_ALLOWED', 'Workspace scope is selected using X-Tenant-Id.');
   }
 }
+function assertAcademicPortalRole(request: ApiRequest): void {
+  if (!['owner', 'admin', 'faculty', 'student'].includes(context(request).role)) {
+    throw new HttpError(403, 'FORBIDDEN', 'This academic workflow is not available to your institution role.');
+  }
+}
 function context(request: ApiRequest) { return request.tenant!; }
 function actor(request: ApiRequest) { return request.auth!.userId; }
 function serialize(doc: { _id: Types.ObjectId; toObject(): Record<string, unknown> }) {
@@ -66,6 +71,7 @@ function serialize(doc: { _id: Types.ObjectId; toObject(): Record<string, unknow
   return { id: _id.toString(), ...rest };
 }
 async function loadClass(request: ApiRequest, classId: string) {
+  assertAcademicPortalRole(request);
   if (!isValidObjectId(classId)) throw new HttpError(400, 'INVALID_ID', 'The class ID is invalid.');
   const filter: Record<string, unknown> = { _id: classId, tenantId: context(request).tenantId, status: 'active' };
   if (context(request).role === 'faculty') filter.teacherUserId = actor(request);
@@ -86,6 +92,7 @@ academicsRouter.use(requireTenant);
 
 academicsRouter.get('/classes', asyncRoute(async (request, response) => {
   const req = request as ApiRequest;
+  assertAcademicPortalRole(req);
   const filter: Record<string, unknown> = { tenantId: context(req).tenantId, status: 'active' };
   if (context(req).role === 'faculty') filter.teacherUserId = actor(req);
   if (context(req).role === 'student') {
@@ -205,6 +212,7 @@ academicsRouter.put('/classes/:id/attendance', requirePermissions('academics.man
 
 academicsRouter.get('/assignments', asyncRoute(async (request, response) => {
   const req = request as ApiRequest;
+  assertAcademicPortalRole(req);
   let classIds: Types.ObjectId[] = [];
   if (context(req).role === 'faculty') {
     classIds = await ClassGroup.find({ tenantId: context(req).tenantId, teacherUserId: actor(req), status: 'active' }).distinct('_id');
