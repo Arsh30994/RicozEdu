@@ -14,6 +14,7 @@ export function dashboardPathForRole(role: PortalRole): string {
 export type Session = {
   accessToken: string;
   refreshToken?: string;
+  userId?: string;
   tenantId: string;
   email: string;
   role: PortalRole;
